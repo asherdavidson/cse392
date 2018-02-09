@@ -1,7 +1,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <sys/epoll.h>
+// #include <sys/epoll.h>
 #include <sys/ioctl.h>
+#include <poll.h>
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -14,6 +15,10 @@
 void exit_error(char *msg) {
     printf("\x1B[1;31m%s\x1B[0m\n", msg);
     exit(EXIT_FAILURE);
+}
+
+void debug(char *msg) {
+    printf("\x1B[1;34m%s\x1B[0m\n", msg);
 }
 
 
@@ -71,7 +76,7 @@ int main(int argc, char const *argv[])
     // args
     const char *address = argv[2];
     const char *port = argv[3];
-    
+
     // get socket connection
     int socket_fd = init_socket(address, port);
 
@@ -79,97 +84,56 @@ int main(int argc, char const *argv[])
 
 
 
+    // init poll fds
+    struct pollfd poll_fds[3];
+    // socket
+    poll_fds[0].fd = socket_fd;
+    poll_fds[0].events = POLLIN;
+    // stdin
+    poll_fds[1].fd = STDIN_FILENO;
+    poll_fds[1].events = POLLIN;
+    // stdout
+    poll_fds[2].fd = STDOUT_FILENO;
+    poll_fds[2].events = POLLOUT;
 
-    // create epoll multiplexer
-    int epoll_fd = epoll_create1(0);
-    if (epoll_fd == -1) {
-        exit_error("error creating epoll");
-    }
+    char in_buf[BUF_SIZE];
+    char out_buf[BUF_SIZE];
+    memset(&in_buf, 0, sizeof(in_buf));
+    memset(&out_buf, 0, sizeof(out_buf));
 
-    // socket read/write event
-    struct epoll_event socket_event;
-    memset(&socket_event, 0, sizeof(struct epoll_event));
-    socket_event.events = EPOLLIN;
-    socket_event.data.fd = socket_fd;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, socket_fd, &socket_event) == -1) {
-        exit_error("Error adding socket fd to epoll");
-    }
+    int cnt = 0;
 
-    // stdin read event
-    struct epoll_event stdin_event;
-    memset(&stdin_event, 0, sizeof(struct epoll_event));
-    stdin_event.events = EPOLLIN;
-    stdin_event.data.fd = STDIN_FILENO;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, STDIN_FILENO, &stdin_event) == -1) {
-        exit_error("Error adding stdin fd to epoll");
-    }
+    while (1) {
+        int n_events = poll(poll_fds, 3, -1);
 
-    // stdout read event
-    struct epoll_event stdout_event;
-    memset(&stdout_event, 0, sizeof(struct epoll_event));
-    stdout_event.events = EPOLLOUT;
-    stdout_event.data.fd = STDOUT_FILENO;
-    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, STDOUT_FILENO, &socket_event) == -1) {
-        exit_error("Error adding stdout fd to epoll");
-    }
+        // socket read
+        if (poll_fds[0].revents & POLLIN) {
+            // debug("socket in");
 
-    char buf[BUF_SIZE];
-    memset(&buf, 0, sizeof(buf));
-
-    struct epoll_event events[MAX_EVENTS];
-    memset(&events, 0, sizeof(events));
-
-    int cnt;
-
-    while(1) {
-        int n_events = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
-        if (n_events == -1) {
-            exit_error("error in epoll_wait");
-        }
-
-        for (int i = 0; i < n_events; i++) {
-            // socket_fd event
-            if (events[i].data.fd == socket_fd) {
-                if (events[i].events & EPOLLIN) {
-                    printf("%s\n", "socket_fd EPOLLIN");
-
-                    ioctl(socket_fd, FIONREAD, &cnt);
-                    if (cnt > 0) {
-                        int n = read(socket_fd, &buf, sizeof(buf));
-                        write(STDOUT_FILENO, buf, n);                        
-                    }
-                
-                } else if (events[i].events & EPOLLOUT) {
-                    printf("%s\n", "socket_fd EPOLLOUT");
-                }
-
-                // printf("%s\n", "socket ready");
-
-            // stdin event
-            } else if (events[i].data.fd == STDIN_FILENO) {
-                printf("%s\n", "stdin ready");
-                int n = read(STDIN_FILENO, &buf, sizeof(buf));
-                write(socket_fd, buf, n);
-
-            // stdout event
-            } else if (events[i].data.fd == STDOUT_FILENO) {
-                printf("%s\n", "stdout ready");
-
+            memset(&out_buf, 0, sizeof(out_buf));
+            if (ioctl(socket_fd, FIONREAD, &cnt) == 0 && cnt > 0) {
+                int n = read(socket_fd, &out_buf, BUF_SIZE);
+                write(STDOUT_FILENO, &out_buf, n);
             }
         }
+
+        if (poll_fds[1].revents & POLLIN) {
+            // debug("stdin in");
+
+            memset(&in_buf, 0, sizeof(in_buf));
+            if (ioctl(STDIN_FILENO, FIONREAD, &cnt) == 0 && cnt > 0) {
+                int n = read(STDIN_FILENO, &in_buf, BUF_SIZE);
+                write(socket_fd, &in_buf, n);
+            }
+
+        }
+
+        if (poll_fds[2].revents & POLLOUT) {
+            // debug("stdout out");
+
+        }
     }
 
-
-
-
-
-    // // historic first words
-    // write(socket_fd, "hello\n", 7);
-
-    // // they respond
-    // read(socket_fd, &buf, sizeof(buf));
-
-    // printf("%s\n", buf);
 
     // good bye
     close(socket_fd);
