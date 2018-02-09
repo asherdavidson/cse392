@@ -9,7 +9,7 @@
 #define BUF_SIZE 500
 
 void exit_error(char *msg) {
-    printf("%s\n", msg);
+    printf("\x1B[1;31m%s\x1B[0m\n", msg);
     exit(EXIT_FAILURE);
 }
 
