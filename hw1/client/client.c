@@ -14,13 +14,7 @@ void exit_error(char *msg) {
 }
 
 
-int main(int argc, char const *argv[])
-{
-    // TODO: handle arguments!
-    if (argc != 4) {
-        exit_error("invalid args");
-    }
-    
+int init_socket(const char *address, const char *port) {
     // get the address
     struct addrinfo hints;
     struct addrinfo *result;
@@ -29,7 +23,7 @@ int main(int argc, char const *argv[])
     hints.ai_family = AF_INET; // TODO: ipv6 support?
     hints.ai_socktype = SOCK_STREAM;
 
-    if (getaddrinfo(argv[2], argv[3], &hints, &result) != 0) {
+    if (getaddrinfo(address, port, &hints, &result) != 0) {
         exit_error("error in getaddrinfo");
     }
 
@@ -51,6 +45,22 @@ int main(int argc, char const *argv[])
     }
 
     freeaddrinfo(result);
+
+    return fd;
+
+}
+
+int main(int argc, char const *argv[])
+{
+    // TODO: handle arguments!
+    if (argc != 4) {
+        exit_error("invalid args");
+    }
+
+    const char *address = argv[2];
+    const char *port = argv[3];
+    
+    int fd = init_socket(address, port);
 
     write(fd, "hello\n", 7);
 
