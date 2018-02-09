@@ -60,12 +60,7 @@ int init_socket(const char *address, const char *port) {
 
 }
 
-<<<<<<< HEAD
 int main(int argc, char *argv[])
-=======
-
-int main(int argc, char const *argv[])
->>>>>>> ae0edb625680f1acc344dc75beab4e8602cea1cc
 {
     int verboseFlag = 0;
     char *username = NULL;
@@ -106,11 +101,6 @@ int main(int argc, char const *argv[])
 
     // get socket connection
     int socket_fd = init_socket(address, port);
-
-
-
-
-
 
     // create epoll multiplexer
     int epoll_fd = epoll_create1(0);
