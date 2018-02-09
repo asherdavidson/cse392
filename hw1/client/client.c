@@ -65,24 +65,47 @@ int init_socket(const char *address, const char *port) {
 
 }
 
-
-int main(int argc, char const *argv[])
+int main(int argc, char *argv[])
 {
-    // TODO: handle arguments!
-    if (argc != 4) {
-        exit_error("invalid args");
+    int verboseFlag = 0;
+    char *username = NULL;
+    char *address = NULL;
+    char *port = NULL;
+    int c;
+    int opterr = 0;
+
+    char *helpMsg =
+        "./client [-hv] NAME SERVER_IP SERVER_PORT\n" \
+        "-h                         Displays this help menu, and returns EXIT_SUCCESS.\n" \
+        "-v                         Verbose print all incoming and outgoing protocol verbs & content.\n" \
+        "NAME                       This is the username to display when chatting.\n" \
+        "SERVER_IP                  The ip address of the server to connect to.\n" \
+        "SERVER_PORT                The port to connect to.\n";
+
+    while((c = getopt(argc, argv, "hv")) != -1) {
+        switch(c) {
+            case 'h':
+                printf("%s", helpMsg);
+                exit(EXIT_SUCCESS);
+            case 'v':
+                verboseFlag = 1;
+                break;
+            default:
+                exit_error(helpMsg);
+        }
     }
 
-    // args
-    const char *address = argv[2];
-    const char *port = argv[3];
+    if(optind >= argc) {
+        exit_error(helpMsg);
+    }
+
+    // TODO: more error checking
+    username = argv[optind];
+    address = argv[optind + 1];
+    port = argv[optind + 2];
 
     // get socket connection
     int socket_fd = init_socket(address, port);
-
-
-
-
 
     // init poll fds
     struct pollfd poll_fds[3];
