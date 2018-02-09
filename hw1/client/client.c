@@ -60,15 +60,8 @@ int init_socket(const char *address, const char *port) {
 
 }
 
-int main(int argc, char *argv[])
-{
-    int verboseFlag = 0;
-    char *username = NULL;
-    char *address = NULL;
-    char *port = NULL;
-    int c;
-    int opterr = 0;
 
+void parseArgs(int argc, char** argv, int* verbose, char** uname, char** addr, char** port) {
     char *helpMsg = 
         "./client [-hv] NAME SERVER_IP SERVER_PORT\n" \
         "-h                         Displays this help menu, and returns EXIT_SUCCESS.\n" \
@@ -77,13 +70,16 @@ int main(int argc, char *argv[])
         "SERVER_IP                  The ip address of the server to connect to.\n" \
         "SERVER_PORT                The port to connect to.\n";
 
+    int c;
+    int opterr = 0;
+
     while((c = getopt(argc, argv, "hv")) != -1) {
         switch(c) {
             case 'h':
                 printf("%s", helpMsg);
                 exit(EXIT_SUCCESS);
             case 'v':
-                verboseFlag = 1;
+                *verbose = 1;
                 break;
             default:
                 exit_error(helpMsg);
@@ -95,9 +91,20 @@ int main(int argc, char *argv[])
     }
 
     // TODO: more error checking
-    username = argv[optind];
-    address = argv[optind + 1];
-    port = argv[optind + 2];
+    *uname = argv[optind];
+    *addr = argv[optind + 1];
+    *port = argv[optind + 2];
+}
+
+
+int main(int argc, char *argv[])
+{
+    int verboseFlag = 0;
+    char *username = NULL;
+    char *address = NULL;
+    char *port = NULL;
+
+    parseArgs(argc, argv, &verboseFlag, &username, &address, &port);
 
     // get socket connection
     int socket_fd = init_socket(address, port);
