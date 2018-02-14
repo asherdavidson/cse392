@@ -14,7 +14,7 @@
 
 char *END_OF_MESSAGE_SEQUENCE = "\r\n\r\n";
 
-typedef enum command {
+typedef enum {
     LOGIN,
     LOGIN_RESPONSE,
     REGISTER_USERNAME,
