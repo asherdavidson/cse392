@@ -1,6 +1,5 @@
 #include <sys/types.h>
 #include <sys/socket.h>
-// #include <sys/epoll.h>
 #include <sys/ioctl.h>
 #include <poll.h>
 #include <netdb.h>
@@ -8,9 +7,35 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdbool.h>
 
-#define BUF_SIZE 500
+#define BUF_SIZE 256
 #define MAX_EVENTS 10
+
+char *END_OF_MESSAGE_SEQUENCE = "\r\n\r\n";
+
+int LOGIN = 1;
+int LOGIN_RESPONSE = 2;
+int REGISTER_USERNAME = 3;
+int REGISTER_USERNAME_RESPONSE_TAKEN = 4;
+int REGISTER_USERNAME_RESPONSE_SUCCESS = 5;
+int DAILY_MESSAGE = 6;
+int LIST_USERS = 7;
+int LIST_USERS_RESPONSE = 8;
+int SEND_MESSAGE = 9;
+int SEND_MESSAGE_RESPONSE_SUCCESS = 10;
+int SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST = 11;
+int RECEIVE_MESSAGE = 12;
+int RECEIVE_MESSAGE_SUCCESS = 13;
+int LOGOUT = 14;
+int LOGOUT_RESPONSE = 15;
+int USER_LOGGED_OFF = 16;
+
+
+struct protocol_message {
+    int command;
+    void *data;
+};
 
 void exit_error(char *msg) {
     printf("\x1B[1;31m%s\x1B[0m\n", msg);
@@ -102,8 +127,47 @@ void parseArgs(int argc, char** argv, int* verbose, char** uname, char** addr, c
 }
 
 
-int main(int argc, char *argv[])
-{
+int read_until_newlines(int fd, char **buf) {
+    // init buffer
+    *buf = calloc(BUF_SIZE, 1);
+    int cnt; // used in ioctl (size of input to read)
+    int i = 0;
+
+    // check if there's actually something to read
+    if (ioctl(fd, FIONREAD, &cnt) == 0 && cnt > 0) {
+        char c = 0;
+
+        while (true) {
+            // increase buffer size by BUF_SIZE when full
+            if (i > 0 && i % BUF_SIZE == 0) {
+                *buf = realloc(*buf, i+BUF_SIZE);
+                memset(*buf+i, 0, BUF_SIZE);
+            }
+
+            // read the bytes into our buffer (possibly in the middle)
+            i += read(fd, *buf + i, BUF_SIZE);
+
+            // check for end of message sequence
+            if (i >= 4 && strncmp((*buf+i-4), END_OF_MESSAGE_SEQUENCE, 4) == 0) {
+                break;
+            }
+        }
+
+    // nothing to read
+    } else {
+        free(*buf);
+        return 0;
+    }
+
+    // remove trailing newlines and insert null-terminator
+    (*buf)[i - 4] = 0;
+
+    // num chars read
+    return i - 4;
+}
+
+
+int main(int argc, char *argv[]) {
     int verboseFlag = 0;
     char *username = NULL;
     char *address = NULL;
@@ -115,51 +179,45 @@ int main(int argc, char *argv[])
     int socket_fd = init_socket(address, port);
 
     // init poll fds
-    struct pollfd poll_fds[3];
+    struct pollfd poll_fds[2];
     // socket
     poll_fds[0].fd = socket_fd;
-    poll_fds[0].events = POLLIN;
+    poll_fds[0].events = POLLIN|POLLPRI;
     // stdin
     poll_fds[1].fd = STDIN_FILENO;
-    poll_fds[1].events = POLLIN;
-    // stdout
-    poll_fds[2].fd = STDOUT_FILENO;
-    poll_fds[2].events = POLLOUT;
+    poll_fds[1].events = POLLIN|POLLPRI;
 
-    char in_buf[BUF_SIZE];
-    char out_buf[BUF_SIZE];
-    memset(&in_buf, 0, sizeof(in_buf));
-    memset(&out_buf, 0, sizeof(out_buf));
+    char *socket_buf;
+    char stdin_buf[BUF_SIZE];
+    memset(&socket_buf, 0, sizeof(socket_buf));
+    memset(&stdin_buf, 0, sizeof(stdin_buf));
 
     int cnt = 0;
 
-    while (1) {
-        int n_events = poll(poll_fds, 3, -1);
+    while (true) {
+        int n_events = poll(poll_fds, 2, -1);
 
         // socket read
         if (poll_fds[0].revents & POLLIN) {
             // debug("socket in");
 
-            memset(&out_buf, 0, sizeof(out_buf));
-            if (ioctl(socket_fd, FIONREAD, &cnt) == 0 && cnt > 0) {
-                int n = read(socket_fd, &out_buf, BUF_SIZE);
-                write(STDOUT_FILENO, &out_buf, n);
+            // blocks until double newlines
+            int n = read_until_newlines(socket_fd, &socket_buf);
+            if (n > 0) {
+                printf("%s\n", socket_buf);
+                free(socket_buf);
+                // write(STDOUT_FILENO, socket_buf, n);
             }
         }
 
         if (poll_fds[1].revents & POLLIN) {
             // debug("stdin in");
 
-            memset(&in_buf, 0, sizeof(in_buf));
+            memset(&stdin_buf, 0, sizeof(stdin_buf));
             if (ioctl(STDIN_FILENO, FIONREAD, &cnt) == 0 && cnt > 0) {
-                int n = read(STDIN_FILENO, &in_buf, BUF_SIZE);
-                write(socket_fd, &in_buf, n);
+                int n = read(STDIN_FILENO, &stdin_buf, BUF_SIZE);
+                write(socket_fd, &stdin_buf, n);
             }
-
-        }
-
-        if (poll_fds[2].revents & POLLOUT) {
-            // debug("stdout out");
 
         }
     }
