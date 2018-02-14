@@ -62,6 +62,7 @@ typedef struct protocol_message {
     char **users; // {&"asd", &"qwe"}
     char *to;
     char *from;
+    char *buf;
 } Msg;
 
 void exit_error(char *msg) {
@@ -78,6 +79,13 @@ Msg parse_server_message(char *buf) {
     if (space_loc != NULL) {
         *space_loc = 0;
     }
+
+    Msg msg;
+
+    size_t len = strlen(buf);
+    // remember to free after sending msg.buf to xterm chat
+    msg.buf = malloc(len);
+    strncpy(msg.buf, buf, len);
 
     if (strcmp(buf, LOGIN_RESPONSE_STR) == 0) {
 
@@ -96,7 +104,8 @@ Msg parse_server_message(char *buf) {
     } else if (strcmp(buf, LOGOUT_RESPONSE_STR) == 0) {
 
     } else if (strcmp(buf, USER_LOGGED_OFF_STR) == 0) {
-
+        msg.command = USER_LOGGED_OFF;
+        msg.username = ++space_loc;
     }
 }
 
