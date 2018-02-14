@@ -55,14 +55,14 @@ typedef enum {
     USER_LOGGED_OFF
 } Cmd;
 
-struct protocol_message {
+typedef struct protocol_message {
     Cmd command;
     char *username;
     char *message;
     char **users; // {&"asd", &"qwe"}
     char *to;
     char *from;
-};
+} Msg;
 
 void exit_error(char *msg) {
     printf("\x1B[1;31m%s\x1B[0m\n", msg);
@@ -73,6 +73,46 @@ void debug(char *msg) {
     printf("\x1B[1;34m%s\x1B[0m\n", msg);
 }
 
+Msg parse_message(char *buf) {
+    char *space_loc = strchr(buf, ' ');
+    if (space_loc != NULL) {
+        *space_loc = 0;
+    }
+
+    if (strcmp(buf, LOGIN_STR) == 0) {
+
+    } else if (strcmp(buf, LOGIN_RESPONSE_STR) == 0) {
+
+    } else if (strcmp(buf, REGISTER_USERNAME_STR) == 0) {
+
+    } else if (strcmp(buf, REGISTER_USERNAME_RESPONSE_TAKEN_STR) == 0) {
+
+    } else if (strcmp(buf, REGISTER_USERNAME_RESPONSE_SUCCESS_STR) == 0) {
+
+    } else if (strcmp(buf, DAILY_MESSAGE_STR) == 0) {
+
+    } else if (strcmp(buf, LIST_USERS_STR) == 0) {
+
+    } else if (strcmp(buf, LIST_USERS_RESPONSE_STR) == 0) {
+
+    } else if (strcmp(buf, SEND_MESSAGE_STR) == 0) {
+
+    } else if (strcmp(buf, SEND_MESSAGE_RESPONSE_SUCCESS_STR) == 0) {
+
+    } else if (strcmp(buf, SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST_STR) == 0) {
+
+    } else if (strcmp(buf, RECEIVE_MESSAGE_STR) == 0) {
+
+    } else if (strcmp(buf, RECEIVE_MESSAGE_SUCCESS_STR) == 0) {
+
+    } else if (strcmp(buf, LOGOUT_STR) == 0) {
+
+    } else if (strcmp(buf, LOGOUT_RESPONSE_STR) == 0) {
+
+    } else if (strcmp(buf, USER_LOGGED_OFF_STR) == 0) {
+
+    }
+}
 
 int init_socket(const char *address, const char *port) {
     struct addrinfo hints;
@@ -231,6 +271,7 @@ int main(int argc, char *argv[]) {
             // blocks until double newlines
             int n = read_until_newlines(socket_fd, &socket_buf);
             if (n > 0) {
+                Msg message = parse_message(socket_buf);
                 printf("%s\n", socket_buf);
                 free(socket_buf);
                 // write(STDOUT_FILENO, socket_buf, n);
