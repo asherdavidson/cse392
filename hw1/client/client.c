@@ -14,27 +14,32 @@
 
 char *END_OF_MESSAGE_SEQUENCE = "\r\n\r\n";
 
-int LOGIN = 1;
-int LOGIN_RESPONSE = 2;
-int REGISTER_USERNAME = 3;
-int REGISTER_USERNAME_RESPONSE_TAKEN = 4;
-int REGISTER_USERNAME_RESPONSE_SUCCESS = 5;
-int DAILY_MESSAGE = 6;
-int LIST_USERS = 7;
-int LIST_USERS_RESPONSE = 8;
-int SEND_MESSAGE = 9;
-int SEND_MESSAGE_RESPONSE_SUCCESS = 10;
-int SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST = 11;
-int RECEIVE_MESSAGE = 12;
-int RECEIVE_MESSAGE_SUCCESS = 13;
-int LOGOUT = 14;
-int LOGOUT_RESPONSE = 15;
-int USER_LOGGED_OFF = 16;
-
+typedef enum command {
+    LOGIN,
+    LOGIN_RESPONSE,
+    REGISTER_USERNAME,
+    REGISTER_USERNAME_RESPONSE_TAKEN,
+    REGISTER_USERNAME_RESPONSE_SUCCESS,
+    DAILY_MESSAGE,
+    LIST_USERS,
+    LIST_USERS_RESPONSE,
+    SEND_MESSAGE,
+    SEND_MESSAGE_RESPONSE_SUCCESS,
+    SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST,
+    RECEIVE_MESSAGE,
+    RECEIVE_MESSAGE_SUCCESS,
+    LOGOUT,
+    LOGOUT_RESPONSE,
+    USER_LOGGED_OFF
+} Cmd;
 
 struct protocol_message {
-    int command;
-    void *data;
+    Cmd command;
+    char *username;
+    char *message;
+    char **users; // {&"asd", &"qwe"}
+    char *to;
+    char *from;
 };
 
 void exit_error(char *msg) {
