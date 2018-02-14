@@ -14,6 +14,28 @@
 
 char *END_OF_MESSAGE_SEQUENCE = "\r\n\r\n";
 
+#define LOGIN_STR                                "ME2U"
+#define LOGIN_RESPONSE_STR                       "U2EM"
+#define REGISTER_USERNAME_STR                    "IAM"
+#define REGISTER_USERNAME_RESPONSE_TAKEN_STR     "ETAKEN"
+#define REGISTER_USERNAME_RESPONSE_SUCCESS_STR   "MAI"
+#define DAILY_MESSAGE_STR                        "MOTD"
+#define LIST_USERS_STR                           "LISTU"
+#define LIST_USERS_RESPONSE_STR                  "UTSIL"
+#define SEND_MESSAGE_STR                         "TO"
+#define SEND_MESSAGE_RESPONSE_SUCCESS_STR        "OT"
+#define SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST_STR "EDNE"
+#define RECEIVE_MESSAGE_STR                      "FROM"
+#define RECEIVE_MESSAGE_SUCCESS_STR              "MORF"
+#define LOGOUT_STR                               "BYE"
+#define LOGOUT_RESPONSE_STR                      "EYB"
+#define USER_LOGGED_OFF_STR                      "UOFF"
+
+#define CLIENT_LOGOUT "/logout"
+#define CLIENT_HELP   "/help"
+#define CLIENT_LISTU  "/listu"
+#define CLIENT_CHAT   "/chat"
+
 typedef enum {
     LOGIN,
     LOGIN_RESPONSE,
