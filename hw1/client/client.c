@@ -88,21 +88,29 @@ Msg parse_server_message(char *buf) {
     strncpy(msg.buf, buf, len);
 
     if (strcmp(buf, LOGIN_RESPONSE_STR) == 0) {
-
+        msg.command = LOGIN_RESPONSE;
     } else if (strcmp(buf, REGISTER_USERNAME_RESPONSE_TAKEN_STR) == 0) {
-
+        // need to know what user typed as username since server doesn't return it
+        msg.command = REGISTER_USERNAME_RESPONSE_TAKEN;
     } else if (strcmp(buf, REGISTER_USERNAME_RESPONSE_SUCCESS_STR) == 0) {
-
+        msg.command = REGISTER_USERNAME_RESPONSE_SUCCESS;
+    } else if (strcmp(buf, DAILY_MESSAGE_STR) == 0) {
+        msg.command = DAILY_MESSAGE;
+        msg.message = ++space_loc;
     } else if (strcmp(buf, LIST_USERS_RESPONSE_STR) == 0) {
+        msg.command = LIST_USERS_RESPONSE;
+        // parse users
 
     } else if (strcmp(buf, SEND_MESSAGE_RESPONSE_SUCCESS_STR) == 0) {
-
+        msg.command = SEND_MESSAGE_RESPONSE_SUCCESS;
     } else if (strcmp(buf, SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST_STR) == 0) {
-
+        msg.command = SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST;
+        msg.username = ++space_loc;
     } else if (strcmp(buf, RECEIVE_MESSAGE_STR) == 0) {
+        msg.command = RECEIVE_MESSAGE;
 
     } else if (strcmp(buf, LOGOUT_RESPONSE_STR) == 0) {
-
+        msg.command = LOGOUT_RESPONSE;
     } else if (strcmp(buf, USER_LOGGED_OFF_STR) == 0) {
         msg.command = USER_LOGGED_OFF;
         msg.username = ++space_loc;
