@@ -184,6 +184,42 @@ Msg parse_server_message(char *buf) {
     return msg;
 }
 
+void process_messsage(ClientState* state, Msg* msg) {
+    switch(msg->command) {
+        case LOGIN_RESPONSE:
+
+            break;
+        case REGISTER_USERNAME_RESPONSE_TAKEN:
+
+            break;
+
+        case REGISTER_USERNAME_RESPONSE_SUCCESS:
+
+            break;
+        case DAILY_MESSAGE:
+
+            break;
+        case LIST_USERS_RESPONSE:
+
+            break;
+        case SEND_MESSAGE_RESPONSE_SUCCESS:
+
+            break;
+        case SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST:
+
+            break;
+        case RECEIVE_MESSAGE:
+
+            break;
+        case LOGOUT_RESPONSE:
+
+            break;
+        case USER_LOGGED_OFF:
+
+            break;
+    }
+}
+
 int init_socket(const char *address, const char *port) {
     struct addrinfo hints;
     struct addrinfo *result;
