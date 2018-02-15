@@ -12,6 +12,8 @@
 #define BUF_SIZE 256
 #define MAX_EVENTS 10
 
+#define INVALID_PROTOCOL_MESSAGE "Invalid protocol message. Exiting."
+
 char *END_OF_MESSAGE_SEQUENCE = "\r\n\r\n";
 
 #define LOGIN_STR                                "ME2U"
@@ -75,46 +77,61 @@ void debug(char *msg) {
 }
 
 Msg parse_server_message(char *buf) {
-    char *space_loc = strchr(buf, ' ');
-    if (space_loc != NULL) {
-        *space_loc = 0;
-    }
-
     Msg msg;
 
+    // backup buf to ease inter-process communication
     size_t len = strlen(buf);
     // remember to free after sending msg.buf to xterm chat
     msg.buf = malloc(len);
     strncpy(msg.buf, buf, len);
 
+    // terminate the first word
+    char *space_loc = strchr(buf, ' ');
+    if (space_loc != NULL) {
+        *space_loc = 0;
+    }
+
+    // TODO: finalize each msg parsing
     if (strcmp(buf, LOGIN_RESPONSE_STR) == 0) {
         msg.command = LOGIN_RESPONSE;
+
     } else if (strcmp(buf, REGISTER_USERNAME_RESPONSE_TAKEN_STR) == 0) {
         // need to know what user typed as username since server doesn't return it
         msg.command = REGISTER_USERNAME_RESPONSE_TAKEN;
+
     } else if (strcmp(buf, REGISTER_USERNAME_RESPONSE_SUCCESS_STR) == 0) {
         msg.command = REGISTER_USERNAME_RESPONSE_SUCCESS;
+
     } else if (strcmp(buf, DAILY_MESSAGE_STR) == 0) {
         msg.command = DAILY_MESSAGE;
         msg.message = ++space_loc;
+
     } else if (strcmp(buf, LIST_USERS_RESPONSE_STR) == 0) {
         msg.command = LIST_USERS_RESPONSE;
         // parse users
 
     } else if (strcmp(buf, SEND_MESSAGE_RESPONSE_SUCCESS_STR) == 0) {
         msg.command = SEND_MESSAGE_RESPONSE_SUCCESS;
+
     } else if (strcmp(buf, SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST_STR) == 0) {
         msg.command = SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST;
         msg.username = ++space_loc;
+
     } else if (strcmp(buf, RECEIVE_MESSAGE_STR) == 0) {
         msg.command = RECEIVE_MESSAGE;
 
     } else if (strcmp(buf, LOGOUT_RESPONSE_STR) == 0) {
         msg.command = LOGOUT_RESPONSE;
+
     } else if (strcmp(buf, USER_LOGGED_OFF_STR) == 0) {
         msg.command = USER_LOGGED_OFF;
         msg.username = ++space_loc;
+
+    } else {
+        exit_error(INVALID_PROTOCOL_MESSAGE);
     }
+
+    return msg;
 }
 
 int init_socket(const char *address, const char *port) {
