@@ -76,6 +76,22 @@ void debug(char *msg) {
     printf("\x1B[1;34m%s\x1B[0m\n", msg);
 }
 
+
+int parse_user_list(char* buf, char** users) {
+    return 0;
+}
+
+/*
+    Given a string, return another string with protocol termination sequence
+*/
+char *terminate_strn(char* str, size_t len) {
+    // len should not include null terminator
+    char* term_str = malloc(len + 5);
+    strncpy(term_str, str, len);
+    strncpy(term_str + (char)len, END_OF_MESSAGE_SEQUENCE, 5);
+    return term_str;
+}
+
 Msg parse_server_message(char *buf) {
     Msg msg;
 
@@ -293,6 +309,9 @@ int main(int argc, char *argv[]) {
             if (n > 0) {
                 Msg message = parse_server_message(socket_buf);
                 printf("%s\n", socket_buf);
+
+
+
                 free(socket_buf);
                 // write(STDOUT_FILENO, socket_buf, n);
             }
@@ -304,7 +323,12 @@ int main(int argc, char *argv[]) {
             memset(&stdin_buf, 0, sizeof(stdin_buf));
             if (ioctl(STDIN_FILENO, FIONREAD, &cnt) == 0 && cnt > 0) {
                 int n = read(STDIN_FILENO, &stdin_buf, BUF_SIZE);
-                write(socket_fd, &stdin_buf, n);
+
+                char* terminated_str = terminate_strn(stdin_buf, n);
+
+                write(socket_fd, terminated_str, strlen(terminated_str));
+
+                free(terminated_str);
             }
 
         }
