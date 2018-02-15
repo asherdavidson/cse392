@@ -69,8 +69,6 @@ typedef struct protocol_message {
     char *username;
     char *message;
     char **users; // {&"asd", &"qwe"}
-    char *to;
-    char *from;
     char *buf;
 } Msg;
 
@@ -107,7 +105,10 @@ int parse_user_list(char* buf, char*** users) {
 }
 
 /*
-    Given a string, return another string with protocol termination sequence
+ * NOTE: we can just call read twice passing in the terminating string
+ * on the second call
+ *
+ * Given a string, return another string with protocol termination sequence
 */
 char *terminate_strn(char* str, size_t len) {
     // len should not include null terminator
@@ -137,11 +138,10 @@ Msg parse_server_message(char *buf) {
         msg.command = LOGIN_RESPONSE;
 
     } else if (strcmp(buf, REGISTER_USERNAME_RESPONSE_TAKEN_STR) == 0) {
-        // need to know what user typed as username since server doesn't return it
         msg.command = REGISTER_USERNAME_RESPONSE_TAKEN;
 
     } else if (strcmp(buf, REGISTER_USERNAME_RESPONSE_SUCCESS_STR) == 0) {
-        msg.command = REGISTER_USERNAME_RESPONSE_SUCCESS;
+            msg.command = REGISTER_USERNAME_RESPONSE_SUCCESS;
 
     } else if (strcmp(buf, DAILY_MESSAGE_STR) == 0) {
         msg.command = DAILY_MESSAGE;
@@ -154,14 +154,14 @@ Msg parse_server_message(char *buf) {
         // remember to free
         parse_user_list(++space_loc, &msg.users);
 
-        int i = 0;
-        while(msg.users[i]) {
-            debug(msg.users[i++]);
-        }
-
+        // int i = 0;
+        // while(msg.users[i]) {
+        //     debug(msg.users[i++]);
+        // }
 
     } else if (strcmp(buf, SEND_MESSAGE_RESPONSE_SUCCESS_STR) == 0) {
         msg.command = SEND_MESSAGE_RESPONSE_SUCCESS;
+        msg.username = ++space_loc;
 
     } else if (strcmp(buf, SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST_STR) == 0) {
         msg.command = SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST;
@@ -169,6 +169,7 @@ Msg parse_server_message(char *buf) {
 
     } else if (strcmp(buf, RECEIVE_MESSAGE_STR) == 0) {
         msg.command = RECEIVE_MESSAGE;
+        msg.username = ++space_loc;
 
     } else if (strcmp(buf, LOGOUT_RESPONSE_STR) == 0) {
         msg.command = LOGOUT_RESPONSE;
