@@ -79,20 +79,24 @@ void debug(char *msg) {
     printf("\x1B[1;34m%s\x1B[0m\n", msg);
 }
 
-int parse_user_list(char* buf, char** users) {
+int parse_user_list(char* buf, char*** users) {
+    // find the number of users
+    int num_users = 0;
+    char *buf_ptr = buf;
+    while (buf_ptr = strchr(buf_ptr, ' ')) {
+        num_users++;
+        buf_ptr++;
+    }
+
     int n = 0;
     char* delim = " ";
-    users = calloc(sizeof(char*) * MAX_USERS, 1);
+    *users = calloc(sizeof(char*), num_users+1); // ends with null-terminator
 
     char* token = strtok(buf, delim);
 
     while(token != NULL) {
-        users[n++] = token;
+        (*users)[n++] = token;
         token = strtok(NULL, delim);
-    }
-
-    while(*users) {
-        printf("%s\n", *users++);
     }
 
     return n;
@@ -144,7 +148,13 @@ Msg parse_server_message(char *buf) {
         // parse userlist
         // might want to refactor to return the list
         // remember to free
-        parse_user_list(++space_loc, msg.users);
+        parse_user_list(++space_loc, &msg.users);
+
+        int i = 0;
+        while(msg.users[i]) {
+            debug(msg.users[i++]);
+        }
+
 
     } else if (strcmp(buf, SEND_MESSAGE_RESPONSE_SUCCESS_STR) == 0) {
         msg.command = SEND_MESSAGE_RESPONSE_SUCCESS;
