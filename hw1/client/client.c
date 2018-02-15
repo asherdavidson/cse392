@@ -38,9 +38,6 @@ char *END_OF_MESSAGE_SEQUENCE = "\r\n\r\n";
 #define CLIENT_LISTU  "/listu"
 #define CLIENT_CHAT   "/chat"
 
-// just for now
-#define MAX_USERS 256
-
 typedef enum {
     LOGIN,
     LOGIN_RESPONSE,
