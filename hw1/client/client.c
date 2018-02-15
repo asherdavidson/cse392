@@ -38,6 +38,9 @@ char *END_OF_MESSAGE_SEQUENCE = "\r\n\r\n";
 #define CLIENT_LISTU  "/listu"
 #define CLIENT_CHAT   "/chat"
 
+// just for now
+#define MAX_USERS 256
+
 typedef enum {
     LOGIN,
     LOGIN_RESPONSE,
@@ -76,9 +79,23 @@ void debug(char *msg) {
     printf("\x1B[1;34m%s\x1B[0m\n", msg);
 }
 
-
 int parse_user_list(char* buf, char** users) {
-    return 0;
+    int n = 0;
+    char* delim = " ";
+    users = calloc(sizeof(char*) * MAX_USERS, 1);
+
+    char* token = strtok(buf, delim);
+
+    while(token != NULL) {
+        users[n++] = token;
+        token = strtok(NULL, delim);
+    }
+
+    while(*users) {
+        printf("%s\n", *users++);
+    }
+
+    return n;
 }
 
 /*
@@ -125,6 +142,7 @@ Msg parse_server_message(char *buf) {
     } else if (strcmp(buf, LIST_USERS_RESPONSE_STR) == 0) {
         msg.command = LIST_USERS_RESPONSE;
         // parse users
+        parse_user_list(++space_loc, msg.users);
 
     } else if (strcmp(buf, SEND_MESSAGE_RESPONSE_SUCCESS_STR) == 0) {
         msg.command = SEND_MESSAGE_RESPONSE_SUCCESS;
@@ -309,8 +327,6 @@ int main(int argc, char *argv[]) {
             if (n > 0) {
                 Msg message = parse_server_message(socket_buf);
                 printf("%s\n", socket_buf);
-
-
 
                 free(socket_buf);
                 // write(STDOUT_FILENO, socket_buf, n);
