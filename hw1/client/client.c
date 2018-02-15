@@ -141,7 +141,9 @@ Msg parse_server_message(char *buf) {
 
     } else if (strcmp(buf, LIST_USERS_RESPONSE_STR) == 0) {
         msg.command = LIST_USERS_RESPONSE;
-        // parse users
+        // parse userlist
+        // might want to refactor to return the list
+        // remember to free
         parse_user_list(++space_loc, msg.users);
 
     } else if (strcmp(buf, SEND_MESSAGE_RESPONSE_SUCCESS_STR) == 0) {
