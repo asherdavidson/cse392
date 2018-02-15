@@ -39,6 +39,13 @@ char *END_OF_MESSAGE_SEQUENCE = "\r\n\r\n";
 #define CLIENT_CHAT   "/chat"
 
 typedef enum {
+    CONNECTING,
+    LOGGING_IN,
+    LOGGED_IN,
+    QUITTING
+} ClientState;
+
+typedef enum {
     LOGIN,
     LOGIN_RESPONSE,
     REGISTER_USERNAME,
