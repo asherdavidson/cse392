@@ -14,11 +14,12 @@
 
 #define SOCKET_CLOSE_ERROR_MESSAGE "The connection was closed. Exiting."
 #define INVALID_PROTOCOL_MESSAGE "Invalid protocol message. Exiting."
+#define UNREQUESTED_PROTOCOL_MESSAGE "A message was received that was not requested. Exiting."
 
 char *END_OF_MESSAGE_SEQUENCE = "\r\n\r\n";
 
-#define LOGIN_STR                                "ME2U"
-#define LOGIN_RESPONSE_STR                       "U2EM"
+#define CONNECT_STR                              "ME2U"
+#define CONNECT_RESPONSE_STR                     "U2EM"
 #define REGISTER_USERNAME_STR                    "IAM"
 #define REGISTER_USERNAME_RESPONSE_TAKEN_STR     "ETAKEN"
 #define REGISTER_USERNAME_RESPONSE_SUCCESS_STR   "MAI"
@@ -41,14 +42,15 @@ char *END_OF_MESSAGE_SEQUENCE = "\r\n\r\n";
 
 typedef enum {
     CONNECTING,
-    LOGGING_IN,
+    CONNECTED,
+    REGISTERING_USERNAME,
     LOGGED_IN,
     QUITTING
 } ClientState;
 
 typedef enum {
-    LOGIN,
-    LOGIN_RESPONSE,
+    CONNECT,
+    CONNECT_RESPONSE,
     REGISTER_USERNAME,
     REGISTER_USERNAME_RESPONSE_TAKEN,
     REGISTER_USERNAME_RESPONSE_SUCCESS,
@@ -135,14 +137,14 @@ Msg parse_server_message(char *buf) {
     }
 
     // TODO: finalize each msg parsing
-    if (strcmp(buf, LOGIN_RESPONSE_STR) == 0) {
-        msg.command = LOGIN_RESPONSE;
+    if (strcmp(buf, CONNECT_RESPONSE_STR) == 0) {
+        msg.command = CONNECT_RESPONSE;
 
     } else if (strcmp(buf, REGISTER_USERNAME_RESPONSE_TAKEN_STR) == 0) {
         msg.command = REGISTER_USERNAME_RESPONSE_TAKEN;
 
     } else if (strcmp(buf, REGISTER_USERNAME_RESPONSE_SUCCESS_STR) == 0) {
-            msg.command = REGISTER_USERNAME_RESPONSE_SUCCESS;
+        msg.command = REGISTER_USERNAME_RESPONSE_SUCCESS;
 
     } else if (strcmp(buf, DAILY_MESSAGE_STR) == 0) {
         msg.command = DAILY_MESSAGE;
@@ -188,37 +190,48 @@ Msg parse_server_message(char *buf) {
 
 void process_messsage(ClientState* state, Msg* msg) {
     switch(msg->command) {
-        case LOGIN_RESPONSE:
+        // TODO: should we have all the message types here (even outgoing)?
+
+        case CONNECT_RESPONSE:
+            if (*state != CONNECTING) {
+                exit_error(UNREQUESTED_PROTOCOL_MESSAGE);
+            }
+            *state = CONNECTED;
 
             break;
+
         case REGISTER_USERNAME_RESPONSE_TAKEN:
+            if (*state != REGISTERING_USERNAME) {
+                exit_error(UNREQUESTED_PROTOCOL_MESSAGE);
+            }
+            *state = CONNECTED;
 
             break;
 
         case REGISTER_USERNAME_RESPONSE_SUCCESS:
-
             break;
+
         case DAILY_MESSAGE:
-
             break;
+
         case LIST_USERS_RESPONSE:
-
             break;
+
         case SEND_MESSAGE_RESPONSE_SUCCESS:
-
             break;
+
         case SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST:
-
             break;
+
         case RECEIVE_MESSAGE:
-
             break;
+
         case LOGOUT_RESPONSE:
-
             break;
+
         case USER_LOGGED_OFF:
-
             break;
+
     }
 }
 
