@@ -188,34 +188,81 @@ Msg parse_server_message(char *buf) {
 void process_messsage(ClientState* state, Msg* msg) {
     switch(msg->command) {
         case LOGIN_RESPONSE:
+            if(*state != CONNECTING)
+                exit_error("Unexpected Login Response Msg");
+
+            // state change from connecting to logging in
+            *state = LOGGING_IN;
 
             break;
         case REGISTER_USERNAME_RESPONSE_TAKEN:
+            if(*state != LOGGING_IN)
+                exit_error("Unexpected Username Taken Msg");
+
+            exit_error("Username Taken");
 
             break;
 
         case REGISTER_USERNAME_RESPONSE_SUCCESS:
+            if(*state != LOGGING_IN)
+                exit_error("Unexpected Username Response Sucess Msg");
+
+            // should expect MOTD from this point on
+            *state = LOGGED_IN;
 
             break;
         case DAILY_MESSAGE:
+            if(*state != LOGGED_IN)
+                exit_error("Unexpected MOTD");
+
+            printf("%s", msg->message);
 
             break;
         case LIST_USERS_RESPONSE:
+            if(*state != LOGGED_IN)
+                exit_error("Unexpected Userlist");
+
+            char** userlist = msg->users;
+            printf("%s", "All Connected Users:\n");
+            while(userlist) {
+                printf("%s\n", *userlist++);
+            }
 
             break;
         case SEND_MESSAGE_RESPONSE_SUCCESS:
+            if(*state != LOGGED_IN)
+                exit_error("Unexpected Send Msg Success Response Msg");
+            // what else do we do
+            printf("%s", "Sent Msg Received");
 
             break;
         case SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST:
+            if(*state != LOGGED_IN)
+                exit_error("Unexpected Send Msg DNE Response Msg");
+
+            printf("Receipient %s does not exist", msg->username);
 
             break;
         case RECEIVE_MESSAGE:
+            if(*state != LOGGED_IN)
+                exit_error("Unexpected Message From Another User");
+
+            // SHOULD BE PRINTED IN XTERM INSTANCE
+            printf("%s: %s", msg->username, msg->message);
 
             break;
         case LOGOUT_RESPONSE:
+            if(*state != LOGGED_IN)
+                exit_error("Unexpected Logout Response");
+            // close socket?
+            printf("%s", "Logout");
+            *state = QUITTING;
 
             break;
         case USER_LOGGED_OFF:
+            if(*state != LOGGED_IN)
+                exit_error("Unexpected User Logout Broadcast");
+
 
             break;
     }
