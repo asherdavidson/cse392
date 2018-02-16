@@ -44,6 +44,7 @@ typedef enum {
     CONNECTING,
     CONNECTED,
     REGISTERING_USERNAME,
+    LOGGED_IN_AWAITING_MOTD,
     LOGGED_IN,
     QUITTING
 } ClientState;
@@ -196,6 +197,7 @@ void process_messsage(ClientState* state, Msg* msg) {
             if (*state != CONNECTING) {
                 exit_error(UNREQUESTED_PROTOCOL_MESSAGE);
             }
+
             *state = CONNECTED;
 
             break;
@@ -210,23 +212,30 @@ void process_messsage(ClientState* state, Msg* msg) {
             break;
 
         case REGISTER_USERNAME_RESPONSE_SUCCESS:
-            if(*state != LOGGING_IN)
+            if(*state != LOGGING_IN) {
                 exit_error("Unexpected Username Response Sucess Msg");
+            }
 
-            // should expect MOTD from this point on
-            *state = LOGGED_IN;
+            // expect MOTD next (can only be received once)
+            *state = LOGGED_IN_AWAITING_MOTD;
 
             break;
+
         case DAILY_MESSAGE:
-            if(*state != LOGGED_IN)
+            if(*state != LOGGED_IN_AWAITING_MOTD) {
                 exit_error("Unexpected MOTD");
+            }
+
+            *state = LOGGED_IN;
 
             printf("%s", msg->message);
+
             break;
 
         case LIST_USERS_RESPONSE:
-            if(*state != LOGGED_IN)
+            if(*state != LOGGED_IN) {
                 exit_error("Unexpected Userlist");
+            }
 
             char** userlist = msg->users;
             printf("%s", "All Connected Users:\n");
@@ -234,11 +243,21 @@ void process_messsage(ClientState* state, Msg* msg) {
                 printf("%s\n", *userlist++);
             }
 
+            break;
+
         case SEND_MESSAGE_RESPONSE_SUCCESS:
-            if(*state != LOGGED_IN)
+            // this is not entirely true. receiving this message when we
+            // didn't ask for it is a protocol error. we need to keep track
+            // of all outgoing messages (not too difficult if we only allow
+            // terminals to send out one message at a time)
+            if(*state != LOGGED_IN) {
                 exit_error("Unexpected Send Msg Success Response Msg");
+            }
+
             // what else do we do
             printf("%s", "Sent Msg Received");
+
+            break;
 
         case SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST:
             if(*state != LOGGED_IN)
@@ -246,12 +265,16 @@ void process_messsage(ClientState* state, Msg* msg) {
 
             printf("Receipient %s does not exist", msg->username);
 
+            break;
+
         case RECEIVE_MESSAGE:
             if(*state != LOGGED_IN)
                 exit_error("Unexpected Message From Another User");
 
             // SHOULD BE PRINTED IN XTERM INSTANCE
             printf("%s: %s", msg->username, msg->message);
+
+            break;
 
         case LOGOUT_RESPONSE:
             if(*state != LOGGED_IN)
