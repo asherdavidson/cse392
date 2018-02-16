@@ -12,12 +12,14 @@
 #define BUF_SIZE 256
 #define MAX_EVENTS 10
 
+#define SOCKET_CLOSE_ERROR_MESSAGE "The connection was closed. Exiting."
 #define INVALID_PROTOCOL_MESSAGE "Invalid protocol message. Exiting."
+#define UNREQUESTED_PROTOCOL_MESSAGE "A message was received that was not requested. Exiting."
 
 char *END_OF_MESSAGE_SEQUENCE = "\r\n\r\n";
 
-#define LOGIN_STR                                "ME2U"
-#define LOGIN_RESPONSE_STR                       "U2EM"
+#define CONNECT_STR                              "ME2U"
+#define CONNECT_RESPONSE_STR                     "U2EM"
 #define REGISTER_USERNAME_STR                    "IAM"
 #define REGISTER_USERNAME_RESPONSE_TAKEN_STR     "ETAKEN"
 #define REGISTER_USERNAME_RESPONSE_SUCCESS_STR   "MAI"
@@ -40,14 +42,15 @@ char *END_OF_MESSAGE_SEQUENCE = "\r\n\r\n";
 
 typedef enum {
     CONNECTING,
-    LOGGING_IN,
+    CONNECTED,
+    REGISTERING_USERNAME,
     LOGGED_IN,
     QUITTING
 } ClientState;
 
 typedef enum {
-    LOGIN,
-    LOGIN_RESPONSE,
+    CONNECT,
+    CONNECT_RESPONSE,
     REGISTER_USERNAME,
     REGISTER_USERNAME_RESPONSE_TAKEN,
     REGISTER_USERNAME_RESPONSE_SUCCESS,
@@ -124,8 +127,8 @@ Msg parse_server_message(char *buf) {
     // backup buf to ease inter-process communication
     size_t len = strlen(buf);
     // remember to free after sending msg.buf to xterm chat
-    msg.buf = malloc(len);
-    strncpy(msg.buf, buf, len);
+    msg.buf = malloc(len+1);
+    strncpy(msg.buf, buf, len+1);
 
     // terminate the first word
     char *space_loc = strchr(buf, ' ');
@@ -134,14 +137,14 @@ Msg parse_server_message(char *buf) {
     }
 
     // TODO: finalize each msg parsing
-    if (strcmp(buf, LOGIN_RESPONSE_STR) == 0) {
-        msg.command = LOGIN_RESPONSE;
+    if (strcmp(buf, CONNECT_RESPONSE_STR) == 0) {
+        msg.command = CONNECT_RESPONSE;
 
     } else if (strcmp(buf, REGISTER_USERNAME_RESPONSE_TAKEN_STR) == 0) {
         msg.command = REGISTER_USERNAME_RESPONSE_TAKEN;
 
     } else if (strcmp(buf, REGISTER_USERNAME_RESPONSE_SUCCESS_STR) == 0) {
-            msg.command = REGISTER_USERNAME_RESPONSE_SUCCESS;
+        msg.command = REGISTER_USERNAME_RESPONSE_SUCCESS;
 
     } else if (strcmp(buf, DAILY_MESSAGE_STR) == 0) {
         msg.command = DAILY_MESSAGE;
@@ -187,17 +190,20 @@ Msg parse_server_message(char *buf) {
 
 void process_messsage(ClientState* state, Msg* msg) {
     switch(msg->command) {
-        case LOGIN_RESPONSE:
-            if(*state != CONNECTING)
-                exit_error("Unexpected Login Response Msg");
+        // TODO: should we have all the message types here (even outgoing)?
 
-            // state change from connecting to logging in
-            *state = LOGGING_IN;
+        case CONNECT_RESPONSE:
+            if (*state != CONNECTING) {
+                exit_error(UNREQUESTED_PROTOCOL_MESSAGE);
+            }
+            *state = CONNECTED;
 
             break;
+
         case REGISTER_USERNAME_RESPONSE_TAKEN:
-            if(*state != LOGGING_IN)
-                exit_error("Unexpected Username Taken Msg");
+            if (*state != REGISTERING_USERNAME) {
+                exit_error(UNREQUESTED_PROTOCOL_MESSAGE);
+            }
 
             exit_error("Username Taken");
 
@@ -216,8 +222,8 @@ void process_messsage(ClientState* state, Msg* msg) {
                 exit_error("Unexpected MOTD");
 
             printf("%s", msg->message);
-
             break;
+
         case LIST_USERS_RESPONSE:
             if(*state != LOGGED_IN)
                 exit_error("Unexpected Userlist");
@@ -228,21 +234,18 @@ void process_messsage(ClientState* state, Msg* msg) {
                 printf("%s\n", *userlist++);
             }
 
-            break;
         case SEND_MESSAGE_RESPONSE_SUCCESS:
             if(*state != LOGGED_IN)
                 exit_error("Unexpected Send Msg Success Response Msg");
             // what else do we do
             printf("%s", "Sent Msg Received");
 
-            break;
         case SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST:
             if(*state != LOGGED_IN)
                 exit_error("Unexpected Send Msg DNE Response Msg");
 
             printf("Receipient %s does not exist", msg->username);
 
-            break;
         case RECEIVE_MESSAGE:
             if(*state != LOGGED_IN)
                 exit_error("Unexpected Message From Another User");
@@ -250,21 +253,20 @@ void process_messsage(ClientState* state, Msg* msg) {
             // SHOULD BE PRINTED IN XTERM INSTANCE
             printf("%s: %s", msg->username, msg->message);
 
-            break;
         case LOGOUT_RESPONSE:
             if(*state != LOGGED_IN)
                 exit_error("Unexpected Logout Response");
             // close socket?
             printf("%s", "Logout");
             *state = QUITTING;
-
             break;
+
         case USER_LOGGED_OFF:
             if(*state != LOGGED_IN)
                 exit_error("Unexpected User Logout Broadcast");
 
-
             break;
+
     }
 }
 
@@ -349,35 +351,35 @@ void parseArgs(int argc, char** argv, int* verbose, char** uname, char** addr, c
 
 
 int read_until_newlines(int fd, char **buf) {
+    // check if there's actually something to read
+    int bytes_readable;
+    ioctl(fd, FIONREAD, &bytes_readable);
+    if (bytes_readable == 0) {
+        return 0;
+    }
+
     // init buffer
     *buf = calloc(BUF_SIZE, 1);
-    int cnt; // used in ioctl (size of input to read)
     int i = 0;
 
-    // check if there's actually something to read
-    if (ioctl(fd, FIONREAD, &cnt) == 0 && cnt > 0) {
-        char c = 0;
-
-        while (true) {
-            // increase buffer size by BUF_SIZE when full
-            if (i > 0 && i % BUF_SIZE == 0) {
-                *buf = realloc(*buf, i+BUF_SIZE);
-                memset(*buf+i, 0, BUF_SIZE);
-            }
-
-            // read the bytes into our buffer (possibly in the middle)
-            i += read(fd, *buf + i, BUF_SIZE);
-
-            // check for end of message sequence
-            if (i >= 4 && strncmp((*buf+i-4), END_OF_MESSAGE_SEQUENCE, 4) == 0) {
-                break;
-            }
+    while (true) {
+        // increase buffer size by BUF_SIZE when full
+        if (i > 0 && i % BUF_SIZE == 0) {
+            *buf = realloc(*buf, i+BUF_SIZE);
+            memset(*buf+i, 0, BUF_SIZE);
         }
 
-    // nothing to read
-    } else {
-        free(*buf);
-        return 0;
+        // read the bytes into our buffer (possibly in the middle)
+        i += read(fd, *buf + i, 1);
+
+        if ((*buf)[i] == EOF) {
+            exit_error(SOCKET_CLOSE_ERROR_MESSAGE);
+        }
+
+        // check for end of message sequence
+        if (i >= 4 && strncmp((*buf+i-4), END_OF_MESSAGE_SEQUENCE, 4) == 0) {
+            break;
+        }
     }
 
     // remove trailing newlines and insert null-terminator
@@ -426,7 +428,7 @@ int main(int argc, char *argv[]) {
             int n = read_until_newlines(socket_fd, &socket_buf);
             if (n > 0) {
                 Msg message = parse_server_message(socket_buf);
-                printf("%s\n", socket_buf);
+                printf("%s\n", message.buf);
 
                 free(socket_buf);
                 // write(STDOUT_FILENO, socket_buf, n);
