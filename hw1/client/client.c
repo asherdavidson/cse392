@@ -9,72 +9,7 @@
 #include <string.h>
 #include <stdbool.h>
 
-#define BUF_SIZE 256
-#define MAX_EVENTS 10
-
-#define SOCKET_CLOSE_ERROR_MESSAGE "The connection was closed. Exiting."
-#define INVALID_PROTOCOL_MESSAGE "Invalid protocol message. Exiting."
-#define UNREQUESTED_PROTOCOL_MESSAGE "A message was received that was not requested. Exiting."
-
-char *END_OF_MESSAGE_SEQUENCE = "\r\n\r\n";
-
-#define CONNECT_STR                              "ME2U"
-#define CONNECT_RESPONSE_STR                     "U2EM"
-#define REGISTER_USERNAME_STR                    "IAM"
-#define REGISTER_USERNAME_RESPONSE_TAKEN_STR     "ETAKEN"
-#define REGISTER_USERNAME_RESPONSE_SUCCESS_STR   "MAI"
-#define DAILY_MESSAGE_STR                        "MOTD"
-#define LIST_USERS_STR                           "LISTU"
-#define LIST_USERS_RESPONSE_STR                  "UTSIL"
-#define SEND_MESSAGE_STR                         "TO"
-#define SEND_MESSAGE_RESPONSE_SUCCESS_STR        "OT"
-#define SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST_STR "EDNE"
-#define RECEIVE_MESSAGE_STR                      "FROM"
-#define RECEIVE_MESSAGE_SUCCESS_STR              "MORF"
-#define LOGOUT_STR                               "BYE"
-#define LOGOUT_RESPONSE_STR                      "EYB"
-#define USER_LOGGED_OFF_STR                      "UOFF"
-
-#define CLIENT_LOGOUT "/logout"
-#define CLIENT_HELP   "/help"
-#define CLIENT_LISTU  "/listu"
-#define CLIENT_CHAT   "/chat"
-
-typedef enum {
-    CONNECTING,
-    CONNECTED,
-    REGISTERING_USERNAME,
-    LOGGED_IN_AWAITING_MOTD,
-    LOGGED_IN,
-    QUITTING
-} ClientState;
-
-typedef enum {
-    CONNECT,
-    CONNECT_RESPONSE,
-    REGISTER_USERNAME,
-    REGISTER_USERNAME_RESPONSE_TAKEN,
-    REGISTER_USERNAME_RESPONSE_SUCCESS,
-    DAILY_MESSAGE,
-    LIST_USERS,
-    LIST_USERS_RESPONSE,
-    SEND_MESSAGE,
-    SEND_MESSAGE_RESPONSE_SUCCESS,
-    SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST,
-    RECEIVE_MESSAGE,
-    RECEIVE_MESSAGE_SUCCESS,
-    LOGOUT,
-    LOGOUT_RESPONSE,
-    USER_LOGGED_OFF
-} Cmd;
-
-typedef struct protocol_message {
-    Cmd command;
-    char *username;
-    char *message;
-    char **users; // {&"asd", &"qwe"}
-    char *buf;
-} Msg;
+#include "types.h"
 
 void exit_error(char *msg) {
     printf("\x1B[1;31m%s\x1B[0m\n", msg);
@@ -123,7 +58,7 @@ char *terminate_strn(char* str, size_t len) {
 }
 
 Msg parse_server_message(char *buf) {
-    Msg msg;
+    Msg msg = {0};
 
     // backup buf to ease inter-process communication
     size_t len = strlen(buf);
@@ -175,6 +110,14 @@ Msg parse_server_message(char *buf) {
         msg.command = RECEIVE_MESSAGE;
         msg.username = ++space_loc;
 
+        space_loc = strchr(space_loc, ' ');
+        if (space_loc == NULL) {
+            exit_error("Malformed FROM message");
+        }
+        *space_loc = 0;
+
+        msg.message = ++space_loc;
+
     } else if (strcmp(buf, LOGOUT_RESPONSE_STR) == 0) {
         msg.command = LOGOUT_RESPONSE;
 
@@ -189,21 +132,124 @@ Msg parse_server_message(char *buf) {
     return msg;
 }
 
-void process_messsage(ClientState* state, Msg* msg) {
-    switch(msg->command) {
+int encode_message(char **buf, Msg msg) {
+    int message_length = 0;
+    int cmd_length = 0;
+    int username_length = 0;
+
+    switch (msg.command) {
+        case CONNECT:
+            cmd_length = strlen(CONNECT_STR);
+            message_length = cmd_length + END_OF_MESSAGE_SEQUENCE_LENGTH + 1;
+
+            // as long as we allocate length + 1, we don't have to insert null-terminator
+            *buf = calloc(message_length, 1);
+            snprintf(*buf, message_length, "%s%s",
+                     CONNECT_STR,
+                     END_OF_MESSAGE_SEQUENCE);
+
+            break;
+
+        case REGISTER_USERNAME:
+            cmd_length = strlen(REGISTER_USERNAME_STR);
+            username_length = strlen(msg.username);
+            message_length = cmd_length + username_length + END_OF_MESSAGE_SEQUENCE_LENGTH + 2;
+
+            *buf = calloc(message_length, 1);
+            snprintf(*buf, message_length, "%s %s%s",
+                     REGISTER_USERNAME_STR,
+                     msg.username,
+                     END_OF_MESSAGE_SEQUENCE);
+            break;
+
+        case LIST_USERS:
+            cmd_length = strlen(LIST_USERS_STR);
+            message_length = cmd_length + END_OF_MESSAGE_SEQUENCE_LENGTH + 1;
+
+            *buf = calloc(message_length, 1);
+            snprintf(*buf, message_length, "%s%s",
+                     LIST_USERS_STR,
+                     END_OF_MESSAGE_SEQUENCE);
+            break;
+
+        case SEND_MESSAGE:
+            cmd_length = strlen(SEND_MESSAGE_STR);
+            username_length = strlen(msg.username);
+            int user_message_length = strlen(msg.message);
+            message_length = cmd_length + username_length + user_message_length + END_OF_MESSAGE_SEQUENCE_LENGTH + 3;
+
+            *buf = calloc(message_length, 1);
+            snprintf(*buf, message_length, "%s %s %s%s",
+                     SEND_MESSAGE_STR,
+                     msg.username,
+                     msg.message,
+                     END_OF_MESSAGE_SEQUENCE);
+            break;
+
+        case RECEIVE_MESSAGE_SUCCESS:
+            cmd_length = strlen(RECEIVE_MESSAGE_SUCCESS_STR);
+            username_length = strlen(msg.username);
+            message_length = cmd_length + username_length + END_OF_MESSAGE_SEQUENCE_LENGTH + 2;
+
+            *buf = calloc(message_length, 1);
+            snprintf(*buf, message_length, "%s %s%s",
+                     RECEIVE_MESSAGE_SUCCESS_STR,
+                     msg.username,
+                     END_OF_MESSAGE_SEQUENCE);
+            break;
+
+        case LOGOUT:
+            cmd_length = strlen(LOGOUT_STR);
+            message_length = cmd_length + END_OF_MESSAGE_SEQUENCE_LENGTH + 1;
+
+            *buf = calloc(message_length, 1);
+            snprintf(*buf, message_length, "%s%s",
+                     LOGOUT_STR,
+                     END_OF_MESSAGE_SEQUENCE);
+            break;
+
+    }
+    return message_length;
+}
+
+void send_message(int socket_fd, Msg msg) {
+    // encode message
+    char *encoded_message;
+    int n = encode_message(&encoded_message, msg);
+
+    // send message
+    write(socket_fd, encoded_message, n);
+
+    // free buffer
+    free(encoded_message);
+}
+
+
+void process_messsage(ApplicationState* app_state, Msg* msg) {
+    switch (msg->command) {
         // TODO: should we have all the message types here (even outgoing)?
 
         case CONNECT_RESPONSE:
-            if (*state != CONNECTING) {
+            debug("CONNECT_RESPONSE");
+            if (app_state->connection_state != CONNECTING) {
                 exit_error(UNREQUESTED_PROTOCOL_MESSAGE);
             }
 
-            *state = CONNECTED;
+            app_state->connection_state = CONNECTED;
+
+            Msg new_msg = {0};
+            new_msg.command = REGISTER_USERNAME;
+            new_msg.username = app_state->username;
+
+            send_message(app_state->socket_fd, new_msg);
+
+            app_state->connection_state = REGISTERING_USERNAME;
 
             break;
 
         case REGISTER_USERNAME_RESPONSE_TAKEN:
-            if (*state != REGISTERING_USERNAME) {
+            debug("REGISTER_USERNAME_RESPONSE_TAKEN");
+            if (app_state->connection_state != REGISTERING_USERNAME) {
                 exit_error(UNREQUESTED_PROTOCOL_MESSAGE);
             }
 
@@ -212,80 +258,94 @@ void process_messsage(ClientState* state, Msg* msg) {
             break;
 
         case REGISTER_USERNAME_RESPONSE_SUCCESS:
-            if(*state != LOGGING_IN) {
+            debug("REGISTER_USERNAME_RESPONSE_SUCCESS");
+            if(app_state->connection_state != REGISTERING_USERNAME) {
                 exit_error("Unexpected Username Response Sucess Msg");
             }
 
             // expect MOTD next (can only be received once)
-            *state = LOGGED_IN_AWAITING_MOTD;
+            app_state->connection_state = LOGGED_IN_AWAITING_MOTD;
 
             break;
 
         case DAILY_MESSAGE:
-            if(*state != LOGGED_IN_AWAITING_MOTD) {
+            debug("DAILY_MESSAGE");
+            if(app_state->connection_state != LOGGED_IN_AWAITING_MOTD) {
                 exit_error("Unexpected MOTD");
             }
 
-            *state = LOGGED_IN;
+            app_state->connection_state = LOGGED_IN;
 
-            printf("%s", msg->message);
+            printf("MOTD: %s\n", msg->message);
 
             break;
 
         case LIST_USERS_RESPONSE:
-            if(*state != LOGGED_IN) {
+            debug("LIST_USERS_RESPONSE");
+            if(app_state->connection_state != LOGGED_IN) {
                 exit_error("Unexpected Userlist");
             }
 
             char** userlist = msg->users;
             printf("%s", "All Connected Users:\n");
-            while(userlist) {
+            while(*userlist) {
                 printf("%s\n", *userlist++);
             }
 
             break;
 
         case SEND_MESSAGE_RESPONSE_SUCCESS:
+            debug("SEND_MESSAGE_RESPONSE_SUCCESS");
             // this is not entirely true. receiving this message when we
             // didn't ask for it is a protocol error. we need to keep track
             // of all outgoing messages (not too difficult if we only allow
             // terminals to send out one message at a time)
-            if(*state != LOGGED_IN) {
+            if(app_state->connection_state != LOGGED_IN) {
                 exit_error("Unexpected Send Msg Success Response Msg");
             }
 
-            // what else do we do
-            printf("%s", "Sent Msg Received");
+            // do nothing
 
             break;
 
         case SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST:
-            if(*state != LOGGED_IN)
+            debug("SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST");
+            if(app_state->connection_state != LOGGED_IN)
                 exit_error("Unexpected Send Msg DNE Response Msg");
 
-            printf("Receipient %s does not exist", msg->username);
+            // TODO: print this in the appropriate window
+            printf("Receipient %s does not exist\n", msg->username);
 
             break;
 
         case RECEIVE_MESSAGE:
-            if(*state != LOGGED_IN)
+            debug("RECEIVE_MESSAGE");
+            if(app_state->connection_state != LOGGED_IN)
                 exit_error("Unexpected Message From Another User");
 
+            Msg response = {0};
+            response.command = RECEIVE_MESSAGE_SUCCESS;
+            response.username = msg->username;
+
+            send_message(app_state->socket_fd, response);
+
             // SHOULD BE PRINTED IN XTERM INSTANCE
-            printf("%s: %s", msg->username, msg->message);
+            printf("%s: %s\n", msg->username, msg->message);
 
             break;
 
         case LOGOUT_RESPONSE:
-            if(*state != LOGGED_IN)
+            debug("LOGOUT_RESPONSE");
+            if(app_state->connection_state != QUITTING)
                 exit_error("Unexpected Logout Response");
             // close socket?
-            printf("%s", "Logout");
-            *state = QUITTING;
+            printf("%s\n", "Logout");
+            app_state->connection_state = TERMINATE;
             break;
 
         case USER_LOGGED_OFF:
-            if(*state != LOGGED_IN)
+            debug("USER_LOGGED_OFF");
+            if(app_state->connection_state != LOGGED_IN)
                 exit_error("Unexpected User Logout Broadcast");
 
             break;
@@ -433,14 +493,30 @@ int main(int argc, char *argv[]) {
     poll_fds[1].fd = STDIN_FILENO;
     poll_fds[1].events = POLLIN|POLLPRI;
 
+    // init buffers
     char *socket_buf;
     char stdin_buf[BUF_SIZE];
-    memset(&socket_buf, 0, sizeof(socket_buf));
     memset(&stdin_buf, 0, sizeof(stdin_buf));
 
-    int cnt = 0;
+    // Init application state
+    ApplicationState app_state = {0};
+    app_state.username = username;
+    app_state.socket_fd = socket_fd;
+    app_state.connection_state = CONNECTING;
+
+    // start handshake
+    // create message
+    Msg connect = {0};
+    connect.command = CONNECT;
+    // send message
+    send_message(socket_fd, connect);
 
     while (true) {
+        // TODO: check for stale requests
+        // e.g. requests we made that didn't receive a response
+        // if this happens, we should probably exit
+
+
         int n_events = poll(poll_fds, 2, -1);
 
         // socket read
@@ -450,11 +526,11 @@ int main(int argc, char *argv[]) {
             // blocks until double newlines
             int n = read_until_newlines(socket_fd, &socket_buf);
             if (n > 0) {
-                Msg message = parse_server_message(socket_buf);
-                printf("%s\n", message.buf);
+                Msg msg = parse_server_message(socket_buf);
+                process_messsage(&app_state, &msg);
 
+                // cleanup
                 free(socket_buf);
-                // write(STDOUT_FILENO, socket_buf, n);
             }
         }
 
@@ -462,14 +538,12 @@ int main(int argc, char *argv[]) {
             // debug("stdin in");
 
             memset(&stdin_buf, 0, sizeof(stdin_buf));
+            int cnt;
             if (ioctl(STDIN_FILENO, FIONREAD, &cnt) == 0 && cnt > 0) {
                 int n = read(STDIN_FILENO, &stdin_buf, BUF_SIZE);
 
-                char* terminated_str = terminate_strn(stdin_buf, n);
-
-                write(socket_fd, terminated_str, strlen(terminated_str));
-
-                free(terminated_str);
+                write(socket_fd, stdin_buf, n);
+                write(socket_fd, END_OF_MESSAGE_SEQUENCE, strlen(END_OF_MESSAGE_SEQUENCE));
             }
 
         }
