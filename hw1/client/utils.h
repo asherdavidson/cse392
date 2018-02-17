@@ -9,6 +9,6 @@ int parse_user_list(char* buf, char*** users);
 
 void parseArgs(int argc, char** argv, int* verbose, char** uname, char** addr, char** port);
 
-int read_until_newlines(int fd, char **buf);
+int read_until_terminator(int fd, char **buf, char *terminator);
 
 #endif

@@ -23,7 +23,7 @@ void debug(char *msg) {
 
 int parse_user_list(char* buf, char*** users) {
     // find the number of users
-    int num_users = 0;
+    int num_users = 1;
     char *buf_ptr = buf;
     while ((buf_ptr = strchr(buf_ptr, ' '))) {
         num_users++;
@@ -78,13 +78,15 @@ void parseArgs(int argc, char** argv, int* verbose, char** uname, char** addr, c
 }
 
 
-int read_until_newlines(int fd, char **buf) {
+int read_until_terminator(int fd, char **buf, char *terminator) {
     // check if there's actually something to read
     int bytes_readable;
     ioctl(fd, FIONREAD, &bytes_readable);
     if (bytes_readable == 0) {
         return 0;
     }
+
+    int terminator_len = strlen(terminator);
 
     // init buffer
     *buf = calloc(BUF_SIZE, 1);
@@ -105,14 +107,14 @@ int read_until_newlines(int fd, char **buf) {
         }
 
         // check for end of message sequence
-        if (i >= 4 && strncmp((*buf+i-4), END_OF_MESSAGE_SEQUENCE, 4) == 0) {
+        if (i >= terminator_len && strncmp((*buf+i-terminator_len), terminator, terminator_len) == 0) {
             break;
         }
     }
 
     // remove trailing newlines and insert null-terminator
-    (*buf)[i - 4] = 0;
+    (*buf)[i - terminator_len] = 0;
 
     // num chars read
-    return i - 4;
+    return i - terminator_len;
 }

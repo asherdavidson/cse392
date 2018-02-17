@@ -28,7 +28,7 @@ Msg parse_server_message(char *buf) {
         *space_loc = 0;
     }
 
-    // TODO: finalize each msg parsing
+    // parse the message
     if (strcmp(buf, CONNECT_RESPONSE_STR) == 0) {
         msg.command = CONNECT_RESPONSE;
 
@@ -83,6 +83,44 @@ Msg parse_server_message(char *buf) {
 
     } else {
         exit_error(INVALID_PROTOCOL_MESSAGE);
+    }
+
+    return msg;
+}
+
+Msg parse_user_message(char *buf) {
+    Msg msg = {0};
+
+    // terminate the first word
+    char *space_loc = strchr(buf, ' ');
+    if (space_loc != NULL) {
+        *space_loc = 0;
+    }
+
+    // parse the message
+    if (strcmp(buf, CLIENT_HELP_STR) == 0) {
+        msg.command = HELP;
+
+    } else if (strcmp(buf, CLIENT_LOGOUT_STR) == 0) {
+        msg.command = LOGOUT;
+
+    } else if (strcmp(buf, CLIENT_LISTU_STR) == 0) {
+        msg.command = LIST_USERS;
+
+    } else if (strcmp(buf, CLIENT_CHAT_STR) == 0) {
+        msg.command = SEND_MESSAGE;
+        msg.username = ++space_loc;
+
+        space_loc = strchr(space_loc, ' ');
+        if (space_loc == NULL) {
+            exit_error("Malformed /chat message");
+        }
+        *space_loc = 0;
+
+        msg.message = ++space_loc;
+
+    } else {
+        msg.command = INVALID_USER_INPUT;
     }
 
     return msg;
@@ -238,6 +276,25 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
 
             break;
 
+        case INVALID_USER_INPUT:
+            printf("%s\n", "Invalid user input");
+            break;
+
+        case HELP:
+            printf("%s", HELP_MESSAGE);
+
+            break;
+
+        case LIST_USERS:
+            debug("LIST_USERS");
+            if (app_state->connection_state != LOGGED_IN) {
+                exit_error("Cannot request user list until logged in.");
+            }
+
+            send_message(app_state->socket_fd, *msg);
+
+            break;
+
         case LIST_USERS_RESPONSE:
             debug("LIST_USERS_RESPONSE");
             if(app_state->connection_state != LOGGED_IN) {
@@ -250,6 +307,14 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
                 printf("%s\n", *userlist++);
             }
 
+            break;
+
+        case SEND_MESSAGE:
+            debug("SEND_MESSAGE");
+            if (app_state->connection_state != LOGGED_IN)
+                exit_error("Not logged in.");
+
+            send_message(app_state->socket_fd, *msg);
             break;
 
         case SEND_MESSAGE_RESPONSE_SUCCESS:
@@ -287,12 +352,23 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
 
             break;
 
+        case LOGOUT:
+            debug("LOGOUT");
+            if (app_state->connection_state != LOGGED_IN)
+                exit_error("Cannot logout if not logged in!");
+
+            send_message(app_state->socket_fd, *msg);
+            printf("%s\n", "Logging out");
+
+            app_state->connection_state = QUITTING;
+            break;
+
         case LOGOUT_RESPONSE:
             debug("LOGOUT_RESPONSE");
             if(app_state->connection_state != QUITTING)
                 exit_error("Unexpected Logout Response");
-            // close socket?
-            printf("%s\n", "Logout");
+
+            printf("%s\n", "Logged out");
             app_state->connection_state = TERMINATE;
             break;
 

@@ -8,6 +8,8 @@
 #define INVALID_PROTOCOL_MESSAGE "Invalid protocol message. Exiting."
 #define UNREQUESTED_PROTOCOL_MESSAGE "A message was received that was not requested. Exiting."
 
+#define HELP_MESSAGE "/help\n/logout\n/listu\n/chat <to> <msg>\n"
+
 #define END_OF_MESSAGE_SEQUENCE                  "\r\n\r\n"
 #define END_OF_MESSAGE_SEQUENCE_LENGTH           4
 
@@ -28,10 +30,10 @@
 #define LOGOUT_RESPONSE_STR                      "EYB"
 #define USER_LOGGED_OFF_STR                      "UOFF"
 
-#define CLIENT_LOGOUT "/logout"
-#define CLIENT_HELP   "/help"
-#define CLIENT_LISTU  "/listu"
-#define CLIENT_CHAT   "/chat"
+#define CLIENT_HELP_STR   "/help"
+#define CLIENT_LOGOUT_STR "/logout"
+#define CLIENT_LISTU_STR  "/listu"
+#define CLIENT_CHAT_STR   "/chat"
 
 typedef enum {
     CONNECT,
@@ -40,6 +42,7 @@ typedef enum {
     REGISTER_USERNAME_RESPONSE_TAKEN,
     REGISTER_USERNAME_RESPONSE_SUCCESS,
     DAILY_MESSAGE,
+    HELP,
     LIST_USERS,
     LIST_USERS_RESPONSE,
     SEND_MESSAGE,
@@ -49,7 +52,8 @@ typedef enum {
     RECEIVE_MESSAGE_SUCCESS,
     LOGOUT,
     LOGOUT_RESPONSE,
-    USER_LOGGED_OFF
+    USER_LOGGED_OFF,
+    INVALID_USER_INPUT
 } Cmd;
 
 typedef struct protocol_message {

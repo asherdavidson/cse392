@@ -36,8 +36,7 @@ int main(int argc, char *argv[]) {
 
     // init buffers
     char *socket_buf;
-    char stdin_buf[BUF_SIZE];
-    memset(&stdin_buf, 0, sizeof(stdin_buf));
+    char *stdin_buf;
 
     // Init application state
     ApplicationState app_state = {0};
@@ -63,7 +62,7 @@ int main(int argc, char *argv[]) {
             // debug("socket in");
 
             // blocks until double newlines
-            int n = read_until_newlines(socket_fd, &socket_buf);
+            int n = read_until_terminator(socket_fd, &socket_buf, END_OF_MESSAGE_SEQUENCE);
             if (n > 0) {
                 Msg msg = parse_server_message(socket_buf);
                 process_messsage(&app_state, &msg);
@@ -74,21 +73,21 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        if (poll_fds[1].revents & POLLIN) {
+        // stdin read
+        if (app_state.connection_state == LOGGED_IN
+            && poll_fds[1].revents & POLLIN) {
             // debug("stdin in");
 
-            memset(&stdin_buf, 0, sizeof(stdin_buf));
-            int cnt;
-            if (ioctl(STDIN_FILENO, FIONREAD, &cnt) == 0 && cnt > 0) {
-                int n = read(STDIN_FILENO, &stdin_buf, BUF_SIZE);
+            int n = read_until_terminator(STDIN_FILENO, &stdin_buf, "\n");
+            if (n > 0) {
+                Msg msg = parse_user_message(stdin_buf);
+                process_messsage(&app_state, &msg);
 
-                write(socket_fd, stdin_buf, n);
-                write(socket_fd, END_OF_MESSAGE_SEQUENCE, strlen(END_OF_MESSAGE_SEQUENCE));
+                free(stdin_buf);
+
             }
-
         }
     }
-
 
     // good bye
     close(socket_fd);
