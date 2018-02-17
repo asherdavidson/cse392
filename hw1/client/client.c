@@ -10,52 +10,7 @@
 #include <stdbool.h>
 
 #include "types.h"
-
-void exit_error(char *msg) {
-    printf("\x1B[1;31m%s\x1B[0m\n", msg);
-    exit(EXIT_FAILURE);
-}
-
-void debug(char *msg) {
-    printf("\x1B[1;34m%s\x1B[0m\n", msg);
-}
-
-int parse_user_list(char* buf, char*** users) {
-    // find the number of users
-    int num_users = 0;
-    char *buf_ptr = buf;
-    while (buf_ptr = strchr(buf_ptr, ' ')) {
-        num_users++;
-        buf_ptr++;
-    }
-
-    int n = 0;
-    char* delim = " ";
-    *users = calloc(sizeof(char*), num_users+1); // ends with null-terminator
-
-    char* token = strtok(buf, delim);
-
-    while(token != NULL) {
-        (*users)[n++] = token;
-        token = strtok(NULL, delim);
-    }
-
-    return n;
-}
-
-/*
- * NOTE: we can just call read twice passing in the terminating string
- * on the second call
- *
- * Given a string, return another string with protocol termination sequence
-*/
-char *terminate_strn(char* str, size_t len) {
-    // len should not include null terminator
-    char* term_str = malloc(len + 5);
-    strncpy(term_str, str, len);
-    strncpy(term_str + (char)len, END_OF_MESSAGE_SEQUENCE, 5);
-    return term_str;
-}
+#include "utils.h"
 
 Msg parse_server_message(char *buf) {
     Msg msg = {0};
@@ -208,6 +163,10 @@ int encode_message(char **buf, Msg msg) {
                      END_OF_MESSAGE_SEQUENCE);
             break;
 
+        default:
+            exit_error("Invalid outgoing message passed to encoder.");
+            break;
+
     }
     return message_length;
 }
@@ -227,8 +186,6 @@ void send_message(int socket_fd, Msg msg) {
 
 void process_messsage(ApplicationState* app_state, Msg* msg) {
     switch (msg->command) {
-        // TODO: should we have all the message types here (even outgoing)?
-
         case CONNECT_RESPONSE:
             debug("CONNECT_RESPONSE");
             if (app_state->connection_state != CONNECTING) {
@@ -296,15 +253,11 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
 
         case SEND_MESSAGE_RESPONSE_SUCCESS:
             debug("SEND_MESSAGE_RESPONSE_SUCCESS");
-            // this is not entirely true. receiving this message when we
-            // didn't ask for it is a protocol error. we need to keep track
-            // of all outgoing messages (not too difficult if we only allow
-            // terminals to send out one message at a time)
             if(app_state->connection_state != LOGGED_IN) {
                 exit_error("Unexpected Send Msg Success Response Msg");
             }
 
-            // do nothing
+            // TODO: forward this message to the appropriate xterm window
 
             break;
 
@@ -313,7 +266,6 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
             if(app_state->connection_state != LOGGED_IN)
                 exit_error("Unexpected Send Msg DNE Response Msg");
 
-            // TODO: print this in the appropriate window
             printf("Receipient %s does not exist\n", msg->username);
 
             break;
@@ -329,7 +281,7 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
 
             send_message(app_state->socket_fd, response);
 
-            // SHOULD BE PRINTED IN XTERM INSTANCE
+            // TODO: SHOULD BE PRINTED IN XTERM INSTANCE
             printf("%s: %s\n", msg->username, msg->message);
 
             break;
@@ -348,6 +300,11 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
             if(app_state->connection_state != LOGGED_IN)
                 exit_error("Unexpected User Logout Broadcast");
 
+            // print user logged off message
+            break;
+
+        default:
+            exit_error("Received an unexpected protocol message.");
             break;
 
     }
@@ -397,82 +354,6 @@ int init_socket(const char *address, const char *port) {
 }
 
 
-void parseArgs(int argc, char** argv, int* verbose, char** uname, char** addr, char** port) {
-    char *helpMsg =
-        "./client [-hv] NAME SERVER_IP SERVER_PORT\n" \
-        "-h                         Displays this help menu, and returns EXIT_SUCCESS.\n" \
-        "-v                         Verbose print all incoming and outgoing protocol verbs & content.\n" \
-        "NAME                       This is the username to display when chatting.\n" \
-        "SERVER_IP                  The ip address of the server to connect to.\n" \
-        "SERVER_PORT                The port to connect to.\n";
-
-    int c;
-    int opterr = 0;
-
-    while((c = getopt(argc, argv, "hv")) != -1) {
-        switch(c) {
-            case 'h':
-                printf("%s", helpMsg);
-                exit(EXIT_SUCCESS);
-            case 'v':
-                *verbose = 1;
-                break;
-            default:
-                exit_error(helpMsg);
-        }
-    }
-
-    if(optind >= argc) {
-        exit_error(helpMsg);
-    }
-
-    // TODO: more error checking
-    *uname = argv[optind];
-    *addr = argv[optind + 1];
-    *port = argv[optind + 2];
-}
-
-
-int read_until_newlines(int fd, char **buf) {
-    // check if there's actually something to read
-    int bytes_readable;
-    ioctl(fd, FIONREAD, &bytes_readable);
-    if (bytes_readable == 0) {
-        return 0;
-    }
-
-    // init buffer
-    *buf = calloc(BUF_SIZE, 1);
-    int i = 0;
-
-    while (true) {
-        // increase buffer size by BUF_SIZE when full
-        if (i > 0 && i % BUF_SIZE == 0) {
-            *buf = realloc(*buf, i+BUF_SIZE);
-            memset(*buf+i, 0, BUF_SIZE);
-        }
-
-        // read the bytes into our buffer (possibly in the middle)
-        i += read(fd, *buf + i, 1);
-
-        if ((*buf)[i] == EOF) {
-            exit_error(SOCKET_CLOSE_ERROR_MESSAGE);
-        }
-
-        // check for end of message sequence
-        if (i >= 4 && strncmp((*buf+i-4), END_OF_MESSAGE_SEQUENCE, 4) == 0) {
-            break;
-        }
-    }
-
-    // remove trailing newlines and insert null-terminator
-    (*buf)[i - 4] = 0;
-
-    // num chars read
-    return i - 4;
-}
-
-
 int main(int argc, char *argv[]) {
     int verboseFlag = 0;
     char *username = NULL;
@@ -517,7 +398,7 @@ int main(int argc, char *argv[]) {
         // if this happens, we should probably exit
 
 
-        int n_events = poll(poll_fds, 2, -1);
+        poll(poll_fds, 2, -1);
 
         // socket read
         if (poll_fds[0].revents & POLLIN) {
