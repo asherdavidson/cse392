@@ -120,6 +120,10 @@ Msg parse_user_message(char *buf) {
         msg.outgoing = true;
 
     } else if (strcmp(buf, CLIENT_CHAT_STR) == 0) {
+        if (space_loc == NULL) {
+            exit_error("Malformed /chat message");
+        }
+
         msg.command = SEND_MESSAGE;
         msg.username = ++space_loc;
         msg.outgoing = true;
