@@ -31,19 +31,24 @@ Msg parse_server_message(char *buf) {
     // parse the message
     if (strcmp(buf, CONNECT_RESPONSE_STR) == 0) {
         msg.command = CONNECT_RESPONSE;
+        msg.outgoing = false;
 
     } else if (strcmp(buf, REGISTER_USERNAME_RESPONSE_TAKEN_STR) == 0) {
         msg.command = REGISTER_USERNAME_RESPONSE_TAKEN;
+        msg.outgoing = false;
 
     } else if (strcmp(buf, REGISTER_USERNAME_RESPONSE_SUCCESS_STR) == 0) {
         msg.command = REGISTER_USERNAME_RESPONSE_SUCCESS;
+        msg.outgoing = false;
 
     } else if (strcmp(buf, DAILY_MESSAGE_STR) == 0) {
         msg.command = DAILY_MESSAGE;
         msg.message = ++space_loc;
+        msg.outgoing = false;
 
     } else if (strcmp(buf, LIST_USERS_RESPONSE_STR) == 0) {
         msg.command = LIST_USERS_RESPONSE;
+        msg.outgoing = false;
         // parse userlist
         // might want to refactor to return the list
         // remember to free
@@ -57,14 +62,17 @@ Msg parse_server_message(char *buf) {
     } else if (strcmp(buf, SEND_MESSAGE_RESPONSE_SUCCESS_STR) == 0) {
         msg.command = SEND_MESSAGE_RESPONSE_SUCCESS;
         msg.username = ++space_loc;
+        msg.outgoing = false;
 
     } else if (strcmp(buf, SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST_STR) == 0) {
         msg.command = SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST;
         msg.username = ++space_loc;
+        msg.outgoing = false;
 
     } else if (strcmp(buf, RECEIVE_MESSAGE_STR) == 0) {
         msg.command = RECEIVE_MESSAGE;
         msg.username = ++space_loc;
+        msg.outgoing = false;
 
         space_loc = strchr(space_loc, ' ');
         if (space_loc == NULL) {
@@ -76,10 +84,12 @@ Msg parse_server_message(char *buf) {
 
     } else if (strcmp(buf, LOGOUT_RESPONSE_STR) == 0) {
         msg.command = LOGOUT_RESPONSE;
+        msg.outgoing = false;
 
     } else if (strcmp(buf, USER_LOGGED_OFF_STR) == 0) {
         msg.command = USER_LOGGED_OFF;
         msg.username = ++space_loc;
+        msg.outgoing = false;
 
     } else {
         exit_error(INVALID_PROTOCOL_MESSAGE);
@@ -103,13 +113,16 @@ Msg parse_user_message(char *buf) {
 
     } else if (strcmp(buf, CLIENT_LOGOUT_STR) == 0) {
         msg.command = LOGOUT;
+        msg.outgoing = true;
 
     } else if (strcmp(buf, CLIENT_LISTU_STR) == 0) {
         msg.command = LIST_USERS;
+        msg.outgoing = true;
 
     } else if (strcmp(buf, CLIENT_CHAT_STR) == 0) {
         msg.command = SEND_MESSAGE;
         msg.username = ++space_loc;
+        msg.outgoing = true;
 
         space_loc = strchr(space_loc, ' ');
         if (space_loc == NULL) {
@@ -210,13 +223,21 @@ int encode_message(char **buf, Msg msg) {
     return message_length;
 }
 
-void send_message(int socket_fd, Msg msg) {
+void send_message(ApplicationState *app_state, Msg msg) {
+    // store the message if it's outgoing
+    if (msg.outgoing) {
+        OutgoingConnection *conn = calloc(sizeof(OutgoingConnection), 1);
+        conn->msg = msg;
+        conn->next = app_state->next_conn;
+        app_state->next_conn = conn;
+    }
+
     // encode message
     char *encoded_message;
     int n = encode_message(&encoded_message, msg);
 
     // send message
-    write(socket_fd, encoded_message, n);
+    write(app_state->socket_fd, encoded_message, n);
 
     // free buffer
     free(encoded_message);
@@ -227,7 +248,8 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
     switch (msg->command) {
         case CONNECT_RESPONSE:
             debug("CONNECT_RESPONSE");
-            if (app_state->connection_state != CONNECTING) {
+            if (app_state->connection_state != CONNECTING
+                || !find_matching_connection(app_state, msg)) {
                 exit_error(UNREQUESTED_PROTOCOL_MESSAGE);
             }
 
@@ -236,8 +258,9 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
             Msg new_msg = {0};
             new_msg.command = REGISTER_USERNAME;
             new_msg.username = app_state->username;
+            new_msg.outgoing = true;
 
-            send_message(app_state->socket_fd, new_msg);
+            send_message(app_state, new_msg);
 
             app_state->connection_state = REGISTERING_USERNAME;
 
@@ -245,7 +268,8 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
 
         case REGISTER_USERNAME_RESPONSE_TAKEN:
             debug("REGISTER_USERNAME_RESPONSE_TAKEN");
-            if (app_state->connection_state != REGISTERING_USERNAME) {
+            if (app_state->connection_state != REGISTERING_USERNAME
+                || !find_matching_connection(app_state, msg)) {
                 exit_error(UNREQUESTED_PROTOCOL_MESSAGE);
             }
 
@@ -255,7 +279,8 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
 
         case REGISTER_USERNAME_RESPONSE_SUCCESS:
             debug("REGISTER_USERNAME_RESPONSE_SUCCESS");
-            if(app_state->connection_state != REGISTERING_USERNAME) {
+            if(app_state->connection_state != REGISTERING_USERNAME
+                || !find_matching_connection(app_state, msg)) {
                 exit_error("Unexpected Username Response Sucess Msg");
             }
 
@@ -291,13 +316,14 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
                 exit_error("Cannot request user list until logged in.");
             }
 
-            send_message(app_state->socket_fd, *msg);
+            send_message(app_state, *msg);
 
             break;
 
         case LIST_USERS_RESPONSE:
             debug("LIST_USERS_RESPONSE");
-            if(app_state->connection_state != LOGGED_IN) {
+            if(app_state->connection_state != LOGGED_IN
+                || !find_matching_connection(app_state, msg)) {
                 exit_error("Unexpected Userlist");
             }
 
@@ -314,12 +340,13 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
             if (app_state->connection_state != LOGGED_IN)
                 exit_error("Not logged in.");
 
-            send_message(app_state->socket_fd, *msg);
+            send_message(app_state, *msg);
             break;
 
         case SEND_MESSAGE_RESPONSE_SUCCESS:
             debug("SEND_MESSAGE_RESPONSE_SUCCESS");
-            if(app_state->connection_state != LOGGED_IN) {
+            if(app_state->connection_state != LOGGED_IN
+                || !find_matching_connection(app_state, msg)) {
                 exit_error("Unexpected Send Msg Success Response Msg");
             }
 
@@ -329,7 +356,8 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
 
         case SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST:
             debug("SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST");
-            if(app_state->connection_state != LOGGED_IN)
+            if(app_state->connection_state != LOGGED_IN
+                || !find_matching_connection(app_state, msg))
                 exit_error("Unexpected Send Msg DNE Response Msg");
 
             printf("Receipient %s does not exist\n", msg->username);
@@ -344,8 +372,9 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
             Msg response = {0};
             response.command = RECEIVE_MESSAGE_SUCCESS;
             response.username = msg->username;
+            response.outgoing = false;
 
-            send_message(app_state->socket_fd, response);
+            send_message(app_state, response);
 
             // TODO: SHOULD BE PRINTED IN XTERM INSTANCE
             printf("%s: %s\n", msg->username, msg->message);
@@ -357,7 +386,7 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
             if (app_state->connection_state != LOGGED_IN)
                 exit_error("Cannot logout if not logged in!");
 
-            send_message(app_state->socket_fd, *msg);
+            send_message(app_state, *msg);
             printf("%s\n", "Logging out");
 
             app_state->connection_state = QUITTING;
@@ -365,7 +394,8 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
 
         case LOGOUT_RESPONSE:
             debug("LOGOUT_RESPONSE");
-            if(app_state->connection_state != QUITTING)
+            if(app_state->connection_state != QUITTING
+                || !find_matching_connection(app_state, msg))
                 exit_error("Unexpected Logout Response");
 
             printf("%s\n", "Logged out");

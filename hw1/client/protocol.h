@@ -7,7 +7,7 @@ Msg parse_user_message(char *buf);
 
 int encode_message(char **buf, Msg msg);
 
-void send_message(int socket_fd, Msg msg);
+void send_message(ApplicationState *app_state, Msg msg);
 
 void process_messsage(ApplicationState* app_state, Msg* msg);
 

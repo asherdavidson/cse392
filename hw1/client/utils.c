@@ -21,6 +21,73 @@ void debug(char *msg) {
     printf("\x1B[1;34m%s\x1B[0m\n", msg);
 }
 
+void remove_connection(ApplicationState *app_state, OutgoingConnection *conn) {
+    // remove if head
+    if (app_state->next_conn == conn) {
+        app_state->next_conn = conn->next;
+
+    // remove in list
+    } else {
+        OutgoingConnection *prev = app_state->next_conn;
+        while (prev->next != conn)
+            prev = prev->next;
+
+        prev->next = prev->next->next;
+    }
+
+}
+
+bool find_matching_connection(ApplicationState *app_state, Msg *msg) {
+    OutgoingConnection *conn = app_state->next_conn;
+
+    while (conn) {
+        switch (msg->command) {
+            case CONNECT_RESPONSE:
+                if (conn->msg.command == CONNECT) {
+                    remove_connection(app_state, conn);
+                    return true;
+                }
+                break;
+
+            case REGISTER_USERNAME_RESPONSE_TAKEN:
+            case REGISTER_USERNAME_RESPONSE_SUCCESS:
+                if (conn->msg.command == REGISTER_USERNAME) {
+                    remove_connection(app_state, conn);
+                    return true;
+                }
+                break;
+
+            case LIST_USERS_RESPONSE:
+                if (conn->msg.command == LIST_USERS) {
+                    remove_connection(app_state, conn);
+                    return true;
+                }
+                break;
+
+            case SEND_MESSAGE_RESPONSE_SUCCESS:
+            case SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST:
+                if (conn->msg.command == SEND_MESSAGE) {
+                    remove_connection(app_state, conn);
+                    return true;
+                }
+                break;
+
+            case LOGOUT_RESPONSE:
+                if (conn->msg.command == LOGOUT) {
+                    remove_connection(app_state, conn);
+                    return true;
+                }
+                break;
+
+            default:
+                exit_error("Invalid message type in find_matching_connection");
+        }
+
+        conn = conn->next;
+    }
+    return false;
+}
+
 int parse_user_list(char* buf, char*** users) {
     // find the number of users
     int num_users = 1;
@@ -111,7 +178,7 @@ int read_until_terminator(int fd, char **buf, char *terminator) {
                 exit_error("an error occurred while reading.");
 
             case 0:
-                exit_error("in invalid request was made or the request timed out.");
+                exit_error("an invalid request was made or the request timed out.");
 
             default:
                 // read the bytes into our buffer (possibly in the middle)

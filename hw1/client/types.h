@@ -63,6 +63,7 @@ typedef struct protocol_message {
     char *message;
     char **users; // {&"asd", &"qwe"}
     char *buf;
+    bool outgoing;
 } Msg;
 
 typedef enum {
@@ -75,10 +76,16 @@ typedef enum {
     TERMINATE
 } ConnectionState;
 
+typedef struct outgoing_connection {
+    Msg msg;
+    struct outgoing_connection *next;
+} OutgoingConnection;
+
 typedef struct {
     ConnectionState connection_state;
     int socket_fd;
     char *username;
+    OutgoingConnection *next_conn;
 } ApplicationState;
 
 #endif

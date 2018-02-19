@@ -48,8 +48,9 @@ int main(int argc, char *argv[]) {
     // create message
     Msg connect = {0};
     connect.command = CONNECT;
+    connect.outgoing = true;
     // send message
-    send_message(socket_fd, connect);
+    send_message(&app_state, connect);
 
     while (true) {
         if (app_state.connection_state == TERMINATE)
