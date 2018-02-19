@@ -99,8 +99,25 @@ int read_until_terminator(int fd, char **buf, char *terminator) {
             memset(*buf+i, 0, BUF_SIZE);
         }
 
-        // read the bytes into our buffer (possibly in the middle)
-        i += read(fd, *buf + i, 1);
+        // set up poll data
+        struct pollfd poll_fd = {
+            .fd = fd,
+            .events = POLLIN
+        };
+
+        // read can block, so we poll on it for 1s
+        switch (poll(&poll_fd, 1, NETWORK_TIMEOUT)) {
+            case -1:
+                exit_error("an error occurred while reading.");
+
+            case 0:
+                exit_error("in invalid request was made or the request timed out.");
+
+            default:
+                // read the bytes into our buffer (possibly in the middle)
+                i += read(fd, *buf + i, 1);
+        }
+
 
         if ((*buf)[i] == EOF) {
             exit_error(SOCKET_CLOSE_ERROR_MESSAGE);

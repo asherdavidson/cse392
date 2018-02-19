@@ -3,6 +3,7 @@
 
 #define BUF_SIZE 256
 #define MAX_EVENTS 10
+#define NETWORK_TIMEOUT 1000
 
 #define SOCKET_CLOSE_ERROR_MESSAGE "The connection was closed. Exiting."
 #define INVALID_PROTOCOL_MESSAGE "Invalid protocol message. Exiting."
