@@ -13,4 +13,8 @@ void parseArgs(int argc, char** argv, int* verbose, char** uname, char** addr, c
 
 int read_until_terminator(int fd, char **buf, char *terminator);
 
+// Signal Handlers
+void sig_child(int signo);
+
+
 #endif

@@ -3,6 +3,7 @@
 #include <sys/ioctl.h>
 #include <poll.h>
 #include <netdb.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -24,6 +25,10 @@ int main(int argc, char *argv[]) {
 
     // get socket connection
     int socket_fd = init_socket(address, port);
+
+    // install signal handler
+    if(signal(SIGCHLD, sig_child) == SIG_ERR)
+        exit_error("signal error");
 
     // init poll fds
     struct pollfd poll_fds[2];

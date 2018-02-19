@@ -1,6 +1,8 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
+#include <sys/wait.h>
+#include <errno.h>
 #include <poll.h>
 #include <netdb.h>
 #include <stdio.h>
@@ -148,6 +150,7 @@ void parseArgs(int argc, char** argv, int* verbose, char** uname, char** addr, c
 int read_until_terminator(int fd, char **buf, char *terminator) {
     // check if there's actually something to read
     int bytes_readable;
+    ssize_t nread;
     ioctl(fd, FIONREAD, &bytes_readable);
     if (bytes_readable == 0) {
         return 0;
@@ -182,7 +185,14 @@ int read_until_terminator(int fd, char **buf, char *terminator) {
 
             default:
                 // read the bytes into our buffer (possibly in the middle)
-                i += read(fd, *buf + i, 1);
+                nread = read(fd, *buf + i, 1);
+
+                if (nread < 0 && errno == EINTR)
+                    continue;
+                else if (nread < 0)
+                    exit_error("read error");
+
+                i += nread;
         }
 
 
@@ -201,4 +211,15 @@ int read_until_terminator(int fd, char **buf, char *terminator) {
 
     // num chars read
     return i - terminator_len;
+}
+
+
+void sig_child(int signo) {
+    pid_t pid;
+    int stat;
+
+    while((pid = waitpid(-1, &stat, WNOHANG)) > 0)
+        debug("child terminated");
+
+    return;
 }
