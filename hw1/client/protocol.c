@@ -241,7 +241,11 @@ void send_message(ApplicationState *app_state, Msg msg) {
     int n = encode_message(&encoded_message, msg);
 
     // send message
-    write(app_state->socket_fd, encoded_message, n);
+    // TODO: Handle EINTR?
+    int stat;
+    if((stat = write(app_state->socket_fd, encoded_message, n)) < 0) {
+        exit_error("write error");
+    }
 
     // free buffer
     free(encoded_message);

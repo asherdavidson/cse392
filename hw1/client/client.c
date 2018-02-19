@@ -29,6 +29,8 @@ int main(int argc, char *argv[]) {
     // install signal handler
     if(signal(SIGCHLD, sig_child) == SIG_ERR)
         exit_error("signal error");
+    if(signal(SIGPIPE, sig_pipe) == SIG_ERR)
+        exit_error("signal error");
 
     // init poll fds
     struct pollfd poll_fds[2];

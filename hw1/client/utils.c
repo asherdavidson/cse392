@@ -187,17 +187,15 @@ int read_until_terminator(int fd, char **buf, char *terminator) {
                 // read the bytes into our buffer (possibly in the middle)
                 nread = read(fd, *buf + i, 1);
 
-                if (nread < 0 && errno == EINTR)
+                if (!nread) {
+                    exit_error(SOCKET_CLOSE_ERROR_MESSAGE);
+                }
+                else if (nread < 0 && errno == EINTR)
                     continue;
                 else if (nread < 0)
                     exit_error("read error");
 
                 i += nread;
-        }
-
-
-        if ((*buf)[i] == EOF) {
-            exit_error(SOCKET_CLOSE_ERROR_MESSAGE);
         }
 
         // check for end of message sequence
@@ -222,4 +220,8 @@ void sig_child(int signo) {
         debug("child terminated");
 
     return;
+}
+
+void sig_pipe(int signo) {
+    exit_error("socket closed");
 }

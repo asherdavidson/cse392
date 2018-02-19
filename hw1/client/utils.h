@@ -16,5 +16,7 @@ int read_until_terminator(int fd, char **buf, char *terminator);
 // Signal Handlers
 void sig_child(int signo);
 
+void sig_pipe(int signo);
+
 
 #endif
