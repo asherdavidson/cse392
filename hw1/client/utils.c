@@ -148,14 +148,6 @@ void parseArgs(int argc, char** argv, int* verbose, char** uname, char** addr, c
 
 
 int read_until_terminator(int fd, char **buf, char *terminator) {
-    // check if there's actually something to read
-    int bytes_readable;
-    ssize_t nread;
-    ioctl(fd, FIONREAD, &bytes_readable);
-    if (bytes_readable == 0) {
-        return 0;
-    }
-
     int terminator_len = strlen(terminator);
 
     // init buffer
@@ -178,22 +170,27 @@ int read_until_terminator(int fd, char **buf, char *terminator) {
         // read can block, so we poll on it for 1s
         switch (poll(&poll_fd, 1, NETWORK_TIMEOUT)) {
             case -1:
+                free(*buf);
                 exit_error("an error occurred while reading.");
 
             case 0:
+                free(*buf);
                 exit_error("an invalid request was made or the request timed out.");
 
-            default:
+            default: ;
                 // read the bytes into our buffer (possibly in the middle)
-                nread = read(fd, *buf + i, 1);
+                ssize_t nread = read(fd, *buf + i, 1);
 
-                if (!nread) {
+                if (nread == 0) {
+                    free(*buf);
                     exit_error(SOCKET_CLOSE_ERROR_MESSAGE);
                 }
                 else if (nread < 0 && errno == EINTR)
                     continue;
-                else if (nread < 0)
+                else if (nread < 0) {
+                    free(*buf);
                     exit_error("read error");
+                }
 
                 i += nread;
         }

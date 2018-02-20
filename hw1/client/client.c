@@ -65,6 +65,11 @@ int main(int argc, char *argv[]) {
 
         poll(poll_fds, 2, -1);
 
+        // check for socket closed
+        if (poll_fds[0].revents & POLLHUP) {
+            exit_error("Socket closed");
+        }
+
         // socket read
         if (poll_fds[0].revents & POLLIN) {
             // debug("socket in");
