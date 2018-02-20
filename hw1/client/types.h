@@ -8,6 +8,7 @@
 #define SOCKET_CLOSE_ERROR_MESSAGE "The connection was closed. Exiting."
 #define INVALID_PROTOCOL_MESSAGE "Invalid protocol message. Exiting."
 #define UNREQUESTED_PROTOCOL_MESSAGE "A message was received that was not requested. Exiting."
+#define USERNAME_TOO_LONG_ERROR "Username is longer than 10 characters"
 
 #define HELP_MESSAGE "/help\n/logout\n/listu\n/chat <to> <msg>\n"
 

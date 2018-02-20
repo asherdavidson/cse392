@@ -136,6 +136,10 @@ Msg parse_user_message(char *buf) {
 
         msg.message = ++space_loc;
 
+        if (strlen(msg.username) > 10) {
+            exit_error(USERNAME_TOO_LONG_ERROR);
+        }
+
     } else {
         msg.command = INVALID_USER_INPUT;
     }

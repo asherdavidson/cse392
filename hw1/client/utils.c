@@ -144,6 +144,10 @@ void parseArgs(int argc, char** argv, int* verbose, char** uname, char** addr, c
     *uname = argv[optind];
     *addr = argv[optind + 1];
     *port = argv[optind + 2];
+
+    if (strlen(*uname) > 10) {
+        exit_error(USERNAME_TOO_LONG_ERROR);
+    }
 }
 
 
