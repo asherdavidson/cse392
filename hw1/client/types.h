@@ -83,10 +83,10 @@ typedef struct outgoing_connection {
 } OutgoingConnection;
 
 typedef struct chat_window {
-    char *name;
+    char name[11];
     int parent_to_child[2];
     int child_to_parent[2];
-    struct ChatWindow *next;
+    struct chat_window *next;
 } ChatWindow;
 
 typedef struct {

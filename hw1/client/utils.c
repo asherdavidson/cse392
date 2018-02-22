@@ -4,6 +4,7 @@
 #include <sys/wait.h>
 #include <errno.h>
 #include <poll.h>
+#include <math.h>
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -212,6 +213,45 @@ int read_until_terminator(int fd, char **buf, char *terminator) {
     return i - terminator_len;
 }
 
+ChatWindow *create_or_get_window(ApplicationState *app_state, char *name) {
+    // check if window exists and return
+    ChatWindow* curr_window = app_state->next_window;
+    while(curr_window) {
+        if(strcmp(app_state->next_window->name, name) == 0) {
+            return curr_window;
+        }
+        curr_window = curr_window->next;
+    }
+
+    ChatWindow* new_window = calloc(sizeof(ChatWindow), 1);
+    strncpy(new_window->name, name, 11);
+
+    pipe(new_window->parent_to_child);
+    pipe(new_window->child_to_parent);
+
+    // insert window into state
+    new_window->next = app_state->next_window;
+    app_state->next_window = new_window;
+
+    // fork and exec with params
+    pid_t pid = fork();
+    if(pid < 0) {
+        exit_error("fork error");
+    } else if (pid == 0) {
+        // child
+        // exec chat with args: name, child read fd, child write fd
+        char read_fd[(int)((ceil(log10(new_window->parent_to_child[0]) + 1))) * sizeof(char)];
+        char write_fd[(int)((ceil(log10(new_window->child_to_parent[1]) + 1))) * sizeof(char)];
+
+        sprintf(read_fd,"%d", new_window->parent_to_child[0]);
+        sprintf(write_fd, "%d", new_window->child_to_parent[1]);
+
+        execl("./chat/chat", name, read_fd, write_fd,NULL);
+    }
+    // close anything??
+
+    return new_window;
+}
 
 void sig_child(int signo) {
     pid_t pid;
