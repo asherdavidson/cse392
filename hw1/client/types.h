@@ -82,11 +82,19 @@ typedef struct outgoing_connection {
     struct outgoing_connection *next;
 } OutgoingConnection;
 
+typedef struct chat_window {
+    char *name;
+    int parent_to_child[2];
+    int child_to_parent[2];
+    struct ChatWindow *next;
+} ChatWindow;
+
 typedef struct {
     ConnectionState connection_state;
     int socket_fd;
     char *username;
     OutgoingConnection *next_conn;
+    ChatWindow *next_window;
 } ApplicationState;
 
 #endif

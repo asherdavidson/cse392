@@ -50,6 +50,8 @@ int main(int argc, char *argv[]) {
     app_state.username = username;
     app_state.socket_fd = socket_fd;
     app_state.connection_state = CONNECTING;
+    app_state.next_conn = NULL;
+    app_state.next_window = NULL;
 
     // start handshake
     // create message
