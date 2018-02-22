@@ -228,7 +228,7 @@ int encode_message(char **buf, Msg msg) {
             break;
 
     }
-    return message_length;
+    return message_length - 1;
 }
 
 void send_message(ApplicationState *app_state, Msg msg) {
