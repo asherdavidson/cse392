@@ -245,7 +245,7 @@ ChatWindow *create_or_get_window(ApplicationState *app_state, char *name) {
         sprintf(read_fd,"%d", new_window->parent_to_child[0]);
         sprintf(write_fd, "%d", new_window->child_to_parent[1]);
 
-        execl("/usr/bin/xterm", "xterm", "-e", "./chat/chat", name, read_fd, write_fd, NULL);
+        execl("/usr/bin/xterm", "xterm", "-T", name, "-e", "./chat/chat", name, read_fd, write_fd, NULL);
     }
     // close anything??
 
