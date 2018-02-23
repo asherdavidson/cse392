@@ -232,6 +232,7 @@ ChatWindow *create_or_get_window(ApplicationState *app_state, char *name) {
     // insert window into state
     new_window->next = app_state->next_window;
     app_state->next_window = new_window;
+    app_state->fds_changed = 1;
 
     // fork and exec with params
     pid_t pid = fork();

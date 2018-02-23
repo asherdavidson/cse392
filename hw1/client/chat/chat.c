@@ -46,7 +46,8 @@ int main(int argc, char *argv[]) {
             char buffer[512];
             int n;
             while((n = read(STDIN_FILENO, buffer, 512)) > 0) {
-                write(STDOUT_FILENO, buffer, n);
+                printf("%s\n", buffer);
+                write(write_fd, buffer, n);
             }
         }
     }

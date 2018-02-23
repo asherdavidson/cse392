@@ -362,7 +362,8 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
                 exit_error("Unexpected Send Msg Success Response Msg");
             }
 
-            // TODO: forward this message to the appropriate xterm window
+            // only open window if other user exists
+            create_or_get_window(app_state, msg->username);
 
             break;
 

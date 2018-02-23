@@ -95,6 +95,8 @@ typedef struct {
     char *username;
     OutgoingConnection *next_conn;
     ChatWindow *next_window;
+    int fds_changed;
+    int num_fds;
 } ApplicationState;
 
 #endif
