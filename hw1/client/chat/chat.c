@@ -34,10 +34,13 @@ int main(int argc, char *argv[]) {
 
         // Client
         if(poll_fds[0].revents & POLLIN) {
+            // TODO replace basic read/write
             char buffer[512];
+            buffer[0] = '>';
             int n;
-            while((n = read(read_fd, buffer, 512)) > 0) {
+            while((n = read(read_fd, buffer + 1, 511)) > 0) {
                 write(STDOUT_FILENO, buffer, n);
+                write(STDOUT_FILENO, "\n", 2);
             }
         }
 
@@ -45,10 +48,11 @@ int main(int argc, char *argv[]) {
         if(poll_fds[1].revents & POLLIN) {
             char buffer[512];
             int n;
-            while((n = read(STDIN_FILENO, buffer, 512)) > 0) {
-                printf("%s\n", buffer);
-                write(write_fd, buffer, n);
-            }
+            // while((n = read(STDIN_FILENO, buffer, 512)) > 0) {
+            //     printf("%s\n", buffer);
+            //     write(write_fd, buffer, n);
+            // }
+
         }
     }
 
