@@ -389,7 +389,10 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
             send_message(app_state, response);
 
             // TODO: SHOULD BE PRINTED IN XTERM INSTANCE
-            printf("%s: %s\n", msg->username, msg->message);
+            // printf("%s: %s\n", msg->username, msg->message);
+            ChatWindow *xterm_window = create_or_get_window(app_state, msg->username);
+
+            write(xterm_window->parent_to_child[1], msg->message, strlen(msg->message));
 
             break;
 

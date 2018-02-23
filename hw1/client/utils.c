@@ -239,14 +239,13 @@ ChatWindow *create_or_get_window(ApplicationState *app_state, char *name) {
         exit_error("fork error");
     } else if (pid == 0) {
         // child
-        // exec chat with args: name, child read fd, child write fd
         char read_fd[(int)((ceil(log10(new_window->parent_to_child[0]) + 1))) * sizeof(char)];
         char write_fd[(int)((ceil(log10(new_window->child_to_parent[1]) + 1))) * sizeof(char)];
 
         sprintf(read_fd,"%d", new_window->parent_to_child[0]);
         sprintf(write_fd, "%d", new_window->child_to_parent[1]);
 
-        execl("./chat/chat", name, read_fd, write_fd,NULL);
+        execl("/usr/bin/xterm", "xterm", "-e", "./chat/chat", name, read_fd, write_fd, NULL);
     }
     // close anything??
 

@@ -9,5 +9,9 @@ int main(int argc, char *argv[]) {
 
     printf("%s, %d, %d \n", name, read_fd, write_fd);
 
+    while(1) {
+
+    }
+
     return 0;
 }
