@@ -7,6 +7,28 @@
 
 #include "utils.h"
 #include "types.h"
+#include "protocol.h"
+
+Msg parse_xterm_message(char* buf) {
+    Msg msg = {0};
+    char *space_loc = strchr(buf, ' ');
+    if(space_loc != NULL) {
+        *space_loc = 0;
+    }
+
+    if (!strcmp(buf, CLIENT_XTERM_QUIT_STR)) {
+        msg.command = CLOSE_XTERM;
+    } else if (buf[0] == '/') {
+        msg.command = INVALID_USER_INPUT;
+    } else {
+        msg.command = SEND_MESSAGE;
+        msg.message = buf;
+        msg.outgoing = true;
+    }
+
+    return msg;
+}
+
 
 int main(int argc, char *argv[]) {
     // sleep(20);
@@ -52,7 +74,15 @@ int main(int argc, char *argv[]) {
                 // print on xterm window
                 printf("< %s", stdin_buf);
 
-                // parse and send
+                Msg msg = parse_xterm_message(stdin_buf);
+                // only command we want is /chat
+                if(msg.command == CLOSE_XTERM) {
+                    exit(EXIT_SUCCESS);
+                } else if(msg.command == INVALID_USER_INPUT) {
+                    printf("%s\n", "Invalid Command");
+                } else {
+                    write(write_fd, msg.message, n);
+                }
 
                 free(stdin_buf);
             }
