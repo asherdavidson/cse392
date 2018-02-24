@@ -2,6 +2,7 @@ TARGET = chat
 LIBS = -lm
 CC = gcc
 CFLAGS = -g3 -Wall
+INCLUDE = ".."
 
 .PHONY: default all clean
 

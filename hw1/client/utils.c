@@ -248,7 +248,9 @@ ChatWindow *create_or_get_window(ApplicationState *app_state, char *name) {
 
         execl("/usr/bin/xterm", "xterm", "-T", name, "-e", "./chat/chat", name, read_fd, write_fd, NULL);
     }
-    // close anything??
+
+    close(new_window->parent_to_child[0]);
+    close(new_window->child_to_parent[1]);
 
     return new_window;
 }
