@@ -363,7 +363,10 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
             }
 
             // only open window if other user exists
-            create_or_get_window(app_state, msg->username);
+            // TODO find the msg that was sent and write it to xterm
+            ChatWindow *window = create_or_get_window(app_state, msg->username);
+            write(window->parent_to_child[1], msg->buf, strlen(msg->buf));
+            write(window->parent_to_child[1], END_OF_MESSAGE_SEQUENCE, 4);
 
             break;
 
@@ -384,14 +387,17 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
 
             ChatWindow *xterm_window = create_or_get_window(app_state, msg->username);
             // send message internally to xterm client
-            int msg_length = strlen(msg->message) +  END_OF_MESSAGE_SEQUENCE_LENGTH + 1;
-            char* buf = calloc(msg_length, 1);
-            snprintf(buf, msg_length, "%s%s",
-                    msg->message,
-                    END_OF_MESSAGE_SEQUENCE);
-            write(xterm_window->parent_to_child[1], buf, msg_length);
-            free(buf);
+            write(xterm_window->parent_to_child[1], msg->buf, strlen(msg->buf));
+            write(xterm_window->parent_to_child[1], END_OF_MESSAGE_SEQUENCE, 4);
 
+            // char* buf = calloc(msg_length, 1);
+            // snprintf(buf, msg_length, "%s%s",
+            //         msg->message,
+            //         END_OF_MESSAGE_SEQUENCE);
+            // write(xterm_window->parent_to_child[1], buf, msg_length);
+            // free(buf);
+
+            // server response
             Msg response = {0};
             response.command = RECEIVE_MESSAGE_SUCCESS;
             response.username = msg->username;

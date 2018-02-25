@@ -222,7 +222,7 @@ ChatWindow *create_or_get_window(ApplicationState *app_state, char *name) {
     // check if window exists and return
     ChatWindow* curr_window = app_state->next_window;
     while(curr_window) {
-        if(strcmp(app_state->next_window->name, name) == 0) {
+        if(!strcmp(curr_window->name, name)) {
             return curr_window;
         }
         curr_window = curr_window->next;

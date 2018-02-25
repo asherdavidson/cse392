@@ -30,8 +30,67 @@ Msg parse_xterm_message(char* buf) {
 }
 
 
+Msg parse_client_message(char *buf) {
+    Msg msg = {0};
+    msg.outgoing = false;
+
+    char* space_loc = strchr(buf, ' ');
+    if(space_loc != NULL) {
+        *space_loc = 0;
+    }
+
+    if(!strcmp(buf, SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST_STR)) {
+        msg.command = XTERM_USER_DOES_NOT_EXIST;
+    } else if(!strcmp(buf, RECEIVE_MESSAGE_STR)) {
+        msg.command = XTERM_USER_MESSAGE;
+        // Messages from client should be well formed
+        space_loc = strchr(space_loc + 1, ' ');
+        *space_loc = 0;
+
+        msg.message = ++space_loc;
+    } else {
+        // SHOULDN'T REALLY HAPPEN
+        msg.command = XTERM_BAD_MSG;
+    }
+
+    return msg;
+}
+
+
+void process_xterm_message(Msg* msg) {
+    switch(msg->command) {
+        case XTERM_USER_DOES_NOT_EXIST:
+            printf("%s\n", "User does not exist");
+            break;
+
+        case XTERM_USER_MESSAGE:
+            printf(">%s\n", msg->message);
+            break;
+
+        case CLOSE_XTERM:
+            // TODO notify client
+
+            break;
+
+        case INVALID_USER_INPUT:
+            printf("%s\n", "Invalid Command");
+            break;
+
+        case SEND_MESSAGE:
+            // TODO send message and process on client side
+
+            break;
+
+        case XTERM_BAD_MSG:
+        default:
+            exit_error("bad xterm msg");
+            break;
+    }
+}
+
+
 int main(int argc, char *argv[]) {
-    sleep(20);
+    // sleep(20);
     char *name = argv[1];
     int read_fd = atoi(argv[2]);
     int write_fd = atoi(argv[3]);
@@ -61,8 +120,8 @@ int main(int argc, char *argv[]) {
         if(poll_fds[0].revents & POLLIN) {
             int n = read_until_terminator(read_fd, &client_buf, END_OF_MESSAGE_SEQUENCE);
             if (n > 0) {
-                printf("> %s\n", client_buf);
-
+                Msg msg = parse_client_message(client_buf);
+                process_xterm_message(&msg);
                 free(client_buf);
             }
         }

@@ -98,6 +98,7 @@ int main(int argc, char *argv[]) {
             }
 
             app_state.num_fds = num_fds;
+            app_state.fds_changed = 0;
         }
 
         poll(poll_fds, app_state.num_fds, -1);

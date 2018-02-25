@@ -57,7 +57,10 @@ typedef enum {
     LOGOUT_RESPONSE,
     USER_LOGGED_OFF,
     INVALID_USER_INPUT,
-    CLOSE_XTERM
+    CLOSE_XTERM,
+    XTERM_USER_DOES_NOT_EXIST,
+    XTERM_USER_MESSAGE,
+    XTERM_BAD_MSG
 } Cmd;
 
 typedef struct protocol_message {
