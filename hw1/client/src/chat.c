@@ -11,14 +11,20 @@
 
 Msg parse_xterm_message(char* buf) {
     Msg msg = {0};
-    char *space_loc = strchr(buf, ' ');
+
+    // copy buf to perform strchr on
+    size_t len = strlen(buf);
+    char *copy = malloc(len + 1);
+    strncpy(copy, buf, len + 1);
+
+    char *space_loc = strchr(copy, ' ');
     if(space_loc != NULL) {
         *space_loc = 0;
     }
 
-    if (!strcmp(buf, CLIENT_XTERM_QUIT_STR)) {
+    if (!strcmp(copy, CLIENT_XTERM_QUIT_STR)) {
         msg.command = CLOSE_XTERM;
-    } else if (buf[0] == '/') {
+    } else if (copy[0] == '/') {
         msg.command = INVALID_USER_INPUT;
     } else {
         msg.command = SEND_MESSAGE;
@@ -26,6 +32,7 @@ Msg parse_xterm_message(char* buf) {
         msg.outgoing = true;
     }
 
+    free(copy);
     return msg;
 }
 
@@ -57,19 +64,21 @@ Msg parse_client_message(char *buf) {
 }
 
 
-void process_xterm_message(Msg* msg) {
+void process_xterm_message(Msg* msg, XtermState* state) {
     switch(msg->command) {
         case XTERM_USER_DOES_NOT_EXIST:
             printf("%s\n", "User does not exist");
             break;
 
         case XTERM_USER_MESSAGE:
-            printf(">%s\n", msg->message);
+            printf("> %s\n", msg->message);
             break;
 
         case CLOSE_XTERM:
             // TODO notify client
 
+            // what about free?
+            exit(EXIT_SUCCESS);
             break;
 
         case INVALID_USER_INPUT:
@@ -78,6 +87,9 @@ void process_xterm_message(Msg* msg) {
 
         case SEND_MESSAGE:
             // TODO send message and process on client side
+            printf("< %s\n", msg->message);
+
+            write(state->write_fd, msg->message, strlen(msg->message));
 
             break;
 
@@ -88,14 +100,15 @@ void process_xterm_message(Msg* msg) {
     }
 }
 
-
 int main(int argc, char *argv[]) {
     // sleep(20);
-    char *name = argv[1];
-    int read_fd = atoi(argv[2]);
-    int write_fd = atoi(argv[3]);
+    XtermState state = {0};
 
-    printf("%s, %d, %d \n", name, read_fd, write_fd);
+    state.username = argv[1];
+    state.read_fd = atoi(argv[2]);
+    state.write_fd = atoi(argv[3]);
+
+    printf("%s, %d, %d \n", state.username, state.read_fd, state.write_fd);
 
     char *stdin_buf = NULL;
     char *client_buf = NULL;
@@ -103,7 +116,7 @@ int main(int argc, char *argv[]) {
     // setup poll
     struct pollfd poll_fds[2];
 
-    poll_fds[0].fd = read_fd;
+    poll_fds[0].fd = state.read_fd;
     poll_fds[0].events = POLLIN|POLLPRI;
 
     poll_fds[1].fd = STDIN_FILENO;
@@ -118,10 +131,10 @@ int main(int argc, char *argv[]) {
 
         // Client
         if(poll_fds[0].revents & POLLIN) {
-            int n = read_until_terminator(read_fd, &client_buf, END_OF_MESSAGE_SEQUENCE);
+            int n = read_until_terminator(state.read_fd, &client_buf, END_OF_MESSAGE_SEQUENCE);
             if (n > 0) {
                 Msg msg = parse_client_message(client_buf);
-                process_xterm_message(&msg);
+                process_xterm_message(&msg, &state);
                 free(client_buf);
             }
         }
@@ -130,19 +143,8 @@ int main(int argc, char *argv[]) {
         if(poll_fds[1].revents & POLLIN) {
             int n = read_until_terminator(STDIN_FILENO, &stdin_buf, "\n");
             if (n > 0) {
-                // print on xterm window
-                printf("< %s", stdin_buf);
-
                 Msg msg = parse_xterm_message(stdin_buf);
-                // only command we want is /chat
-                if(msg.command == CLOSE_XTERM) {
-                    exit(EXIT_SUCCESS);
-                } else if(msg.command == INVALID_USER_INPUT) {
-                    printf("%s\n", "Invalid Command");
-                } else {
-                    write(write_fd, msg.message, n);
-                }
-
+                process_xterm_message(&msg, &state);
                 free(stdin_buf);
             }
         }

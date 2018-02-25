@@ -104,4 +104,10 @@ typedef struct {
     int num_fds;
 } ApplicationState;
 
+typedef struct {
+    char *username;
+    int write_fd;
+    int read_fd;
+} XtermState;
+
 #endif

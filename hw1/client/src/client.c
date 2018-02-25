@@ -142,7 +142,7 @@ int main(int argc, char *argv[]) {
         // xterm windows read
         for(int i = 2; i < app_state.num_fds; i++) {
             if(poll_fds[i].revents & POLLIN) {
-                int n = read_until_terminator(poll_fds[i].fd, &xterm_buf, NULL);
+                int n = read_until_terminator(poll_fds[i].fd, &xterm_buf, "\n");
                 if (n > 0) {
                     printf("%s", xterm_buf);
 
