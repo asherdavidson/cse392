@@ -36,6 +36,7 @@
 #define CLIENT_LOGOUT_STR "/logout"
 #define CLIENT_LISTU_STR  "/listu"
 #define CLIENT_CHAT_STR   "/chat"
+#define CLIENT_XTERM_QUIT_STR "/close"
 
 typedef enum {
     CONNECT,
@@ -55,7 +56,8 @@ typedef enum {
     LOGOUT,
     LOGOUT_RESPONSE,
     USER_LOGGED_OFF,
-    INVALID_USER_INPUT
+    INVALID_USER_INPUT,
+    CLOSE_XTERM
 } Cmd;
 
 typedef struct protocol_message {
@@ -95,6 +97,8 @@ typedef struct {
     char *username;
     OutgoingConnection *next_conn;
     ChatWindow *next_window;
+    int fds_changed;
+    int num_fds;
 } ApplicationState;
 
 #endif

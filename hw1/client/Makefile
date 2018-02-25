@@ -1,24 +1,44 @@
-TARGET = client
-LIBS = -lm
-CC = gcc
-CFLAGS = -g3 -Wall
+CC := gcc
+SRCD := src
+BLDD := build
+BIND := bin
+INCD := include
 
-.PHONY: default all clean
+ALL_SRCF := $(shell find $(SRCD) -type f -name *.c)
+ALL_OBJF := $(patsubst $(SRCD)/%,$(BLDD)/%,$(ALL_SRCF:.c=.o))
+CLIENT_OBJF := $(filter-out build/chat.o, $(ALL_OBJF))
+CHAT_OBJF := $(filter-out build/client.o, $(ALL_OBJF))
 
-default: $(TARGET)
-all: default
+INC := -I $(INCD)
 
-OBJECTS = $(patsubst %.c, %.o, $(wildcard *.c))
-HEADERS = $(wildcard *.h)
+CLIENT_EXEC := client
+CHAT_EXEC := chat
 
-%.o: %.c $(HEADERS)
-	$(CC) $(CFLAGS) -c $< -o $@
+CFLAGS := -Wall -Werror
+DFLAGS := -g -DDEBUG -DCOLOR
+STD := -std=gnu11
+LIBS := -lm
 
-.PRECIOUS: $(TARGET) $(OBJECTS)
+CFLAGS += $(STD)
 
-$(TARGET): $(OBJECTS)
-	$(CC) $(OBJECTS) -Wall $(LIBS) -o $@
+.PHONY: clean all
+
+debug: CFLAGS += $(DFLAGS)
+debug: all
+
+all: setup $(CLIENT_EXEC) $(CHAT_EXEC)
+
+setup:
+	mkdir -p bin build
+
+$(CLIENT_EXEC): $(CLIENT_OBJF)
+	$(CC) $^ -o $(BIND)/$@ $(LIBS)
+
+$(CHAT_EXEC): $(CHAT_OBJF)
+	$(CC) $^ -o $(BIND)/$@ $(LIBS)
+
+$(BLDD)/%.o: $(SRCD)/%.c
+	$(CC) $(CFLAGS) $(INC) -c -o $@ $<
 
 clean:
-	-rm -f *.o
-	-rm -f $(TARGET)
+	$(RM) -r $(BLDD) $(BIND)

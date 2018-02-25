@@ -153,7 +153,7 @@ void parseArgs(int argc, char** argv, int* verbose, char** uname, char** addr, c
 
 
 int read_until_terminator(int fd, char **buf, char *terminator) {
-    int terminator_len = strlen(terminator);
+    int terminator_len = !terminator ? 0 : strlen(terminator);
 
     // init buffer
     *buf = calloc(BUF_SIZE, 1);
@@ -187,6 +187,8 @@ int read_until_terminator(int fd, char **buf, char *terminator) {
                 ssize_t nread = read(fd, *buf + i, 1);
 
                 if (nread == 0) {
+                    // if(!terminator) return i;
+
                     free(*buf);
                     exit_error(SOCKET_CLOSE_ERROR_MESSAGE);
                 }
@@ -199,6 +201,9 @@ int read_until_terminator(int fd, char **buf, char *terminator) {
 
                 i += nread;
         }
+
+        // check for null terminator
+        // if (!terminator && *(*buf + i) == 0) return i;
 
         // check for end of message sequence
         if (i >= terminator_len && strncmp((*buf+i-terminator_len), terminator, terminator_len) == 0) {
@@ -232,6 +237,7 @@ ChatWindow *create_or_get_window(ApplicationState *app_state, char *name) {
     // insert window into state
     new_window->next = app_state->next_window;
     app_state->next_window = new_window;
+    app_state->fds_changed = 1;
 
     // fork and exec with params
     pid_t pid = fork();
@@ -239,15 +245,20 @@ ChatWindow *create_or_get_window(ApplicationState *app_state, char *name) {
         exit_error("fork error");
     } else if (pid == 0) {
         // child
+        close(new_window->parent_to_child[1]);
+        close(new_window->child_to_parent[0]);
+
         char read_fd[(int)((ceil(log10(new_window->parent_to_child[0]) + 1))) * sizeof(char)];
         char write_fd[(int)((ceil(log10(new_window->child_to_parent[1]) + 1))) * sizeof(char)];
 
         sprintf(read_fd,"%d", new_window->parent_to_child[0]);
         sprintf(write_fd, "%d", new_window->child_to_parent[1]);
 
-        execl("/usr/bin/xterm", "xterm", "-e", "./chat/chat", name, read_fd, write_fd, NULL);
+        execl("/usr/bin/xterm", "xterm", "-T", name, "-e", "bin/chat", name, read_fd, write_fd, NULL);
     }
-    // close anything??
+
+    close(new_window->parent_to_child[0]);
+    close(new_window->child_to_parent[1]);
 
     return new_window;
 }

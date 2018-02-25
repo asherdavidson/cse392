@@ -33,17 +33,19 @@ int main(int argc, char *argv[]) {
         exit_error("signal error");
 
     // init poll fds
-    struct pollfd poll_fds[2];
-    // socket
-    poll_fds[0].fd = socket_fd;
-    poll_fds[0].events = POLLIN|POLLPRI;
-    // stdin
-    poll_fds[1].fd = STDIN_FILENO;
-    poll_fds[1].events = POLLIN|POLLPRI;
+    struct pollfd *poll_fds = NULL;
+    // struct pollfd poll_fds[2];
+    // // socket
+    // poll_fds[0].fd = socket_fd;
+    // poll_fds[0].events = POLLIN|POLLPRI;
+    // // stdin
+    // poll_fds[1].fd = STDIN_FILENO;
+    // poll_fds[1].events = POLLIN|POLLPRI;
 
     // init buffers
     char *socket_buf;
     char *stdin_buf;
+    char *xterm_buf;
 
     // Init application state
     ApplicationState app_state = {0};
@@ -52,6 +54,9 @@ int main(int argc, char *argv[]) {
     app_state.connection_state = CONNECTING;
     app_state.next_conn = NULL;
     app_state.next_window = NULL;
+    // set fds_changed to 1 at the start so it'll be created
+    app_state.fds_changed = 1;
+    app_state.num_fds = 0;
 
     // start handshake
     // create message
@@ -65,7 +70,36 @@ int main(int argc, char *argv[]) {
         if (app_state.connection_state == TERMINATE)
             break;
 
-        poll(poll_fds, 2, -1);
+        // if number of user client talks to changes, reinit pollfds
+        if(app_state.fds_changed) {
+            int num_fds = 2;    // start with 2 for STDIN and socket
+
+            ChatWindow *curr = app_state.next_window;
+            while(curr) {
+                num_fds++;
+                curr = curr->next;
+            }
+
+            free(poll_fds);
+
+            poll_fds = calloc(sizeof(struct pollfd), num_fds);
+            // socket
+            poll_fds[0].fd = socket_fd;
+            poll_fds[0].events = POLLIN|POLLPRI;
+            // stdin
+            poll_fds[1].fd = STDIN_FILENO;
+            poll_fds[1].events = POLLIN|POLLPRI;
+
+            curr = app_state.next_window;
+            for(int i = 2; i < num_fds; i++, curr = curr->next) {
+                poll_fds[i].fd = curr->child_to_parent[0];
+                poll_fds[i].events = POLLIN | POLLPRI;
+            }
+
+            app_state.num_fds = num_fds;
+        }
+
+        poll(poll_fds, app_state.num_fds, -1);
 
         // check for socket closed
         if (poll_fds[0].revents & POLLHUP) {
@@ -102,8 +136,21 @@ int main(int argc, char *argv[]) {
 
             }
         }
+
+        // xterm windows read
+        for(int i = 2; i < app_state.num_fds; i++) {
+            if(poll_fds[i].revents & POLLIN) {
+                int n = read_until_terminator(poll_fds[i].fd, &xterm_buf, NULL);
+                if (n > 0) {
+                    printf("%s", xterm_buf);
+
+                    free(xterm_buf);
+                }
+            }
+        }
     }
 
+    free(poll_fds);
     // good bye
     close(socket_fd);
 
