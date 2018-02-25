@@ -72,6 +72,7 @@ int main(int argc, char *argv[]) {
 
         // if number of user client talks to changes, reinit pollfds
         if(app_state.fds_changed) {
+            printf("%s\n", "Num FDs changed");
             int num_fds = 2;    // start with 2 for STDIN and socket
 
             ChatWindow *curr = app_state.next_window;

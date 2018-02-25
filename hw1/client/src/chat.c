@@ -31,7 +31,7 @@ Msg parse_xterm_message(char* buf) {
 
 
 int main(int argc, char *argv[]) {
-    // sleep(20);
+    sleep(20);
     char *name = argv[1];
     int read_fd = atoi(argv[2]);
     int write_fd = atoi(argv[3]);
@@ -59,7 +59,7 @@ int main(int argc, char *argv[]) {
 
         // Client
         if(poll_fds[0].revents & POLLIN) {
-            int n = read_until_terminator(read_fd, &client_buf, NULL);
+            int n = read_until_terminator(read_fd, &client_buf, END_OF_MESSAGE_SEQUENCE);
             if (n > 0) {
                 printf("> %s\n", client_buf);
 
