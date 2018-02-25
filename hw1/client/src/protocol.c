@@ -382,18 +382,22 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
             if(app_state->connection_state != LOGGED_IN)
                 exit_error("Unexpected Message From Another User");
 
+            ChatWindow *xterm_window = create_or_get_window(app_state, msg->username);
+            // send message internally to xterm client
+            int msg_length = strlen(msg->message) +  END_OF_MESSAGE_SEQUENCE_LENGTH + 1;
+            char* buf = calloc(msg_length, 1);
+            snprintf(buf, msg_length, "%s%s",
+                    msg->message,
+                    END_OF_MESSAGE_SEQUENCE);
+            write(xterm_window->parent_to_child[1], buf, msg_length);
+            free(buf);
+
             Msg response = {0};
             response.command = RECEIVE_MESSAGE_SUCCESS;
             response.username = msg->username;
             response.outgoing = false;
 
             send_message(app_state, response);
-
-            // TODO: SHOULD BE PRINTED IN XTERM INSTANCE
-            // printf("%s: %s\n", msg->username, msg->message);
-            ChatWindow *xterm_window = create_or_get_window(app_state, msg->username);
-
-            write(xterm_window->parent_to_child[1], msg->message, strlen(msg->message));
 
             break;
 

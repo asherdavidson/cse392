@@ -153,7 +153,7 @@ void parseArgs(int argc, char** argv, int* verbose, char** uname, char** addr, c
 
 
 int read_until_terminator(int fd, char **buf, char *terminator) {
-    int terminator_len = !terminator ? 0 : strlen(terminator);
+    int terminator_len = strlen(terminator);
 
     // init buffer
     *buf = calloc(BUF_SIZE, 1);
