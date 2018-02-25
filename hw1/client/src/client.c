@@ -32,15 +32,7 @@ int main(int argc, char *argv[]) {
     if(signal(SIGPIPE, sig_pipe) == SIG_ERR)
         exit_error("signal error");
 
-    // init poll fds
     struct pollfd *poll_fds = NULL;
-    // struct pollfd poll_fds[2];
-    // // socket
-    // poll_fds[0].fd = socket_fd;
-    // poll_fds[0].events = POLLIN|POLLPRI;
-    // // stdin
-    // poll_fds[1].fd = STDIN_FILENO;
-    // poll_fds[1].events = POLLIN|POLLPRI;
 
     // init buffers
     char *socket_buf;
@@ -55,7 +47,7 @@ int main(int argc, char *argv[]) {
     app_state.next_conn = NULL;
     app_state.next_window = NULL;
     // set fds_changed to 1 at the start so it'll be created
-    app_state.fds_changed = 1;
+    app_state.fds_changed = true;
     app_state.num_fds = 0;
 
     // start handshake
@@ -100,7 +92,7 @@ int main(int argc, char *argv[]) {
             printf("%s %d\n", "Numfds", num_fds);
 
             app_state.num_fds = num_fds;
-            app_state.fds_changed = 0;
+            app_state.fds_changed = false;
         }
 
         poll(poll_fds, app_state.num_fds, -1);

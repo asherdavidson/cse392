@@ -64,6 +64,7 @@ Msg parse_client_message(char *buf) {
 
         msg.message = ++space_loc;
     } else {
+        printf("%s\n", "Unrecognized");
         msg.command = XTERM_BAD_MSG;
     }
 
@@ -105,7 +106,8 @@ void process_xterm_message(Msg* msg, XtermState* state) {
 
         case XTERM_BAD_MSG:
         default:
-            exit_error("bad xterm msg");
+            debug("bad xterm msg");
+            signal_exit_handler();
             break;
     }
 }
@@ -142,7 +144,7 @@ int main(int argc, char *argv[]) {
         poll(poll_fds, 2, -1);
 
         if(poll_fds[0].revents & POLLHUP) {
-            return 0;
+            signal_exit_handler();
         }
 
         // Client

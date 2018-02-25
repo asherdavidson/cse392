@@ -25,6 +25,11 @@ void debug(char *msg) {
 }
 
 void remove_connection(ApplicationState *app_state, OutgoingConnection *conn) {
+    // free mem if needed
+    if (conn->msg.message) {
+        free(conn->msg.message);
+    }
+
     // remove if head
     if (app_state->next_conn == conn) {
         app_state->next_conn = conn->next;
@@ -70,6 +75,7 @@ bool find_matching_connection(ApplicationState *app_state, Msg *msg) {
             case SEND_MESSAGE_RESPONSE_SUCCESS:
             case SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST:
                 if (conn->msg.command == SEND_MESSAGE) {
+                    printf("%s\n", conn->msg.message);;
                     remove_connection(app_state, conn);
                     return true;
                 }

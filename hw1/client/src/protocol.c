@@ -268,6 +268,15 @@ void send_message(ApplicationState *app_state, Msg msg) {
     if (msg.outgoing) {
         OutgoingConnection *conn = calloc(sizeof(OutgoingConnection), 1);
         conn->msg = msg;
+
+        // copy message if there is one
+        if(msg.message) {
+            size_t len = strlen(msg.message);
+
+            conn->msg.message = malloc(len);
+            strncpy(conn->msg.message, msg.message, len);
+        }
+
         conn->next = app_state->next_conn;
         app_state->next_conn = conn;
     }
@@ -393,6 +402,8 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
                 || !find_matching_connection(app_state, msg)) {
                 exit_error("Unexpected Send Msg Success Response Msg");
             }
+
+            printf("%s\n", "RES Success");
 
             // only open window if other user exists
             // TODO find the msg that was sent and write it to xterm
