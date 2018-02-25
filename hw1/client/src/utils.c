@@ -187,8 +187,6 @@ int read_until_terminator(int fd, char **buf, char *terminator) {
                 ssize_t nread = read(fd, *buf + i, 1);
 
                 if (nread == 0) {
-                    // if(!terminator) return i;
-
                     free(*buf);
                     exit_error(SOCKET_CLOSE_ERROR_MESSAGE);
                 }
@@ -201,9 +199,6 @@ int read_until_terminator(int fd, char **buf, char *terminator) {
 
                 i += nread;
         }
-
-        // check for null terminator
-        // if (!terminator && *(*buf + i) == 0) return i;
 
         // check for end of message sequence
         if (i >= terminator_len && strncmp((*buf+i-terminator_len), terminator, terminator_len) == 0) {

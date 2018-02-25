@@ -56,7 +56,6 @@ Msg parse_client_message(char *buf) {
 
         msg.message = ++space_loc;
     } else {
-        // SHOULDN'T REALLY HAPPEN
         msg.command = XTERM_BAD_MSG;
     }
 
@@ -89,7 +88,11 @@ void process_xterm_message(Msg* msg, XtermState* state) {
             // TODO send message and process on client side
             printf("< %s\n", msg->message);
 
+            write(state->write_fd, "TO ", 3);
+            write(state->write_fd, state->username, strlen(state->username));
+            write(state->write_fd, " ", 1);
             write(state->write_fd, msg->message, strlen(msg->message));
+            write(state->write_fd, END_OF_MESSAGE_SEQUENCE, END_OF_MESSAGE_SEQUENCE_LENGTH);
 
             break;
 

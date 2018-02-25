@@ -97,6 +97,8 @@ int main(int argc, char *argv[]) {
                 poll_fds[i].events = POLLIN | POLLPRI;
             }
 
+            printf("%s %d\n", "Numfds", num_fds);
+
             app_state.num_fds = num_fds;
             app_state.fds_changed = 0;
         }
@@ -142,9 +144,12 @@ int main(int argc, char *argv[]) {
         // xterm windows read
         for(int i = 2; i < app_state.num_fds; i++) {
             if(poll_fds[i].revents & POLLIN) {
-                int n = read_until_terminator(poll_fds[i].fd, &xterm_buf, "\n");
+                int n = read_until_terminator(poll_fds[i].fd, &xterm_buf, END_OF_MESSAGE_SEQUENCE);
                 if (n > 0) {
-                    printf("%s", xterm_buf);
+                    printf("%s\n", xterm_buf);
+
+
+                    // Msg msg = {0};
 
                     free(xterm_buf);
                 }
