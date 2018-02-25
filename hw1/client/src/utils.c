@@ -187,8 +187,6 @@ int read_until_terminator(int fd, char **buf, char *terminator) {
                 ssize_t nread = read(fd, *buf + i, 1);
 
                 if (nread == 0) {
-                    // if(!terminator) return i;
-
                     free(*buf);
                     exit_error(SOCKET_CLOSE_ERROR_MESSAGE);
                 }
@@ -201,9 +199,6 @@ int read_until_terminator(int fd, char **buf, char *terminator) {
 
                 i += nread;
         }
-
-        // check for null terminator
-        // if (!terminator && *(*buf + i) == 0) return i;
 
         // check for end of message sequence
         if (i >= terminator_len && strncmp((*buf+i-terminator_len), terminator, terminator_len) == 0) {
@@ -222,7 +217,7 @@ ChatWindow *create_or_get_window(ApplicationState *app_state, char *name) {
     // check if window exists and return
     ChatWindow* curr_window = app_state->next_window;
     while(curr_window) {
-        if(strcmp(app_state->next_window->name, name) == 0) {
+        if(!strcmp(curr_window->name, name)) {
             return curr_window;
         }
         curr_window = curr_window->next;
@@ -261,6 +256,40 @@ ChatWindow *create_or_get_window(ApplicationState *app_state, char *name) {
     close(new_window->child_to_parent[1]);
 
     return new_window;
+}
+
+void remove_window(ApplicationState* app_state, char *name) {
+    printf("%s\n", "cleaning up window info");
+
+    bool found = false;
+    ChatWindow* prev = NULL;
+    ChatWindow* curr = app_state->next_window;
+
+    while(curr) {
+        if(!strcmp(name, curr->name)) {
+            found = true;
+
+            if(!prev) {
+                app_state->next_window = curr->next;
+            } else {
+                prev->next = curr->next;
+                curr->next = NULL;
+            }
+            close(curr->parent_to_child[1]);
+            close(curr->parent_to_child[0]);
+            free(curr);
+            break;
+        } else {
+            prev = curr;
+            curr = curr->next;
+        }
+    }
+
+    if(!found) {
+        exit_error("no window to clean up");
+    }
+
+    app_state->fds_changed = true;
 }
 
 void sig_child(int signo) {

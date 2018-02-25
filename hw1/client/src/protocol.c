@@ -147,6 +147,38 @@ Msg parse_user_message(char *buf) {
     return msg;
 }
 
+Msg parse_window_message(char *buf) {
+    Msg msg = {0};
+
+    // terminate the first word
+    char *space_loc = strchr(buf, ' ');
+    if (space_loc != NULL) {
+        *space_loc = 0;
+    }
+
+    // parse the message
+    if (strcmp(buf, SEND_MESSAGE_STR) == 0) {
+        msg.command = SEND_MESSAGE;
+        msg.outgoing = true;
+        msg.username = ++space_loc;
+
+        space_loc = strchr(space_loc, ' ');
+        if (space_loc == NULL) {
+            exit_error("Malformed /chat message");
+        }
+        *space_loc = 0;
+        msg.message = ++space_loc;
+    } else if (strcmp(buf, XTERM_EXIT_STR) == 0) {
+        msg.command = XTERM_CLOSE;
+        msg.username = ++space_loc;
+    } else {
+        msg.command = XTERM_BAD_MSG;
+        exit_error("bad message from chat to client");
+    }
+
+    return msg;
+}
+
 int encode_message(char **buf, Msg msg) {
     int message_length = 0;
     int cmd_length = 0;
@@ -363,7 +395,10 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
             }
 
             // only open window if other user exists
-            create_or_get_window(app_state, msg->username);
+            // TODO find the msg that was sent and write it to xterm
+            ChatWindow *window = create_or_get_window(app_state, msg->username);
+            write(window->parent_to_child[1], msg->buf, strlen(msg->buf));
+            write(window->parent_to_child[1], END_OF_MESSAGE_SEQUENCE, 4);
 
             break;
 
@@ -382,16 +417,12 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
             if(app_state->connection_state != LOGGED_IN)
                 exit_error("Unexpected Message From Another User");
 
-            ChatWindow *xterm_window = create_or_get_window(app_state, msg->username);
             // send message internally to xterm client
-            int msg_length = strlen(msg->message) +  END_OF_MESSAGE_SEQUENCE_LENGTH + 1;
-            char* buf = calloc(msg_length, 1);
-            snprintf(buf, msg_length, "%s%s",
-                    msg->message,
-                    END_OF_MESSAGE_SEQUENCE);
-            write(xterm_window->parent_to_child[1], buf, msg_length);
-            free(buf);
+            ChatWindow *xterm_window = create_or_get_window(app_state, msg->username);
+            write(xterm_window->parent_to_child[1], msg->buf, strlen(msg->buf));
+            write(xterm_window->parent_to_child[1], END_OF_MESSAGE_SEQUENCE, 4);
 
+            // server response
             Msg response = {0};
             response.command = RECEIVE_MESSAGE_SUCCESS;
             response.username = msg->username;
@@ -428,6 +459,10 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
                 exit_error("Unexpected User Logout Broadcast");
 
             // print user logged off message
+            break;
+
+        case XTERM_CLOSE:
+            remove_window(app_state, msg->username);
             break;
 
         default:

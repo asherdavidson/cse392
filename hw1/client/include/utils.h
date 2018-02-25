@@ -17,6 +17,8 @@ int read_until_terminator(int fd, char **buf, char *terminator);
 
 ChatWindow *create_or_get_window(ApplicationState *app_state, char *name);
 
+void remove_window(ApplicationState* app_state, char *name);
+
 // Signal Handlers
 void sig_child(int signo);
 

@@ -5,6 +5,8 @@ Msg parse_server_message(char *buf);
 
 Msg parse_user_message(char *buf);
 
+Msg parse_window_message(char *buf);
+
 int encode_message(char **buf, Msg msg);
 
 void send_message(ApplicationState *app_state, Msg msg);
