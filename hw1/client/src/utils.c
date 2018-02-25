@@ -258,6 +258,40 @@ ChatWindow *create_or_get_window(ApplicationState *app_state, char *name) {
     return new_window;
 }
 
+void remove_window(ApplicationState* app_state, char *name) {
+    printf("%s\n", "cleaning up window info");
+
+    bool found = false;
+    ChatWindow* prev = NULL;
+    ChatWindow* curr = app_state->next_window;
+
+    while(curr) {
+        if(!strcmp(name, curr->name)) {
+            found = true;
+
+            if(!prev) {
+                app_state->next_window = curr->next;
+            } else {
+                prev->next = curr->next;
+                curr->next = NULL;
+            }
+            close(curr->parent_to_child[1]);
+            close(curr->parent_to_child[0]);
+            free(curr);
+            break;
+        } else {
+            prev = curr;
+            curr = curr->next;
+        }
+    }
+
+    if(!found) {
+        exit_error("no window to clean up");
+    }
+
+    app_state->fds_changed = true;
+}
+
 void sig_child(int signo) {
     pid_t pid;
     int stat;

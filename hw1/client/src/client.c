@@ -148,8 +148,8 @@ int main(int argc, char *argv[]) {
                 if (n > 0) {
                     printf("%s\n", xterm_buf);
 
-
-                    // Msg msg = {0};
+                    Msg msg = parse_window_message(xterm_buf);
+                    process_messsage(&app_state, &msg);
 
                     free(xterm_buf);
                 }

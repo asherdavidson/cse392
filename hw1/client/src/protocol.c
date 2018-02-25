@@ -147,6 +147,38 @@ Msg parse_user_message(char *buf) {
     return msg;
 }
 
+Msg parse_window_message(char *buf) {
+    Msg msg = {0};
+
+    // terminate the first word
+    char *space_loc = strchr(buf, ' ');
+    if (space_loc != NULL) {
+        *space_loc = 0;
+    }
+
+    // parse the message
+    if (strcmp(buf, SEND_MESSAGE_STR) == 0) {
+        msg.command = SEND_MESSAGE;
+        msg.outgoing = true;
+        msg.username = ++space_loc;
+
+        space_loc = strchr(space_loc, ' ');
+        if (space_loc == NULL) {
+            exit_error("Malformed /chat message");
+        }
+        *space_loc = 0;
+        msg.message = ++space_loc;
+    } else if (strcmp(buf, XTERM_EXIT_STR) == 0) {
+        msg.command = XTERM_CLOSE;
+        msg.username = ++space_loc;
+    } else {
+        msg.command = XTERM_BAD_MSG;
+        exit_error("bad message from chat to client");
+    }
+
+    return msg;
+}
+
 int encode_message(char **buf, Msg msg) {
     int message_length = 0;
     int cmd_length = 0;
@@ -427,6 +459,10 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
                 exit_error("Unexpected User Logout Broadcast");
 
             // print user logged off message
+            break;
+
+        case XTERM_CLOSE:
+            remove_window(app_state, msg->username);
             break;
 
         default:

@@ -31,6 +31,7 @@
 #define LOGOUT_STR                               "BYE"
 #define LOGOUT_RESPONSE_STR                      "EYB"
 #define USER_LOGGED_OFF_STR                      "UOFF"
+#define XTERM_EXIT_STR                           "XEXIT"
 
 #define CLIENT_HELP_STR   "/help"
 #define CLIENT_LOGOUT_STR "/logout"
@@ -57,7 +58,7 @@ typedef enum {
     LOGOUT_RESPONSE,
     USER_LOGGED_OFF,
     INVALID_USER_INPUT,
-    CLOSE_XTERM,
+    XTERM_CLOSE,
     XTERM_USER_DOES_NOT_EXIST,
     XTERM_USER_MESSAGE,
     XTERM_BAD_MSG

@@ -1,4 +1,6 @@
+#include <stdbool.h>
 #include <poll.h>
+#include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -8,6 +10,12 @@
 #include "utils.h"
 #include "types.h"
 #include "protocol.h"
+
+static volatile bool running = true;
+
+void signal_exit_handler() {
+    running = false;
+}
 
 Msg parse_xterm_message(char* buf) {
     Msg msg = {0};
@@ -23,7 +31,7 @@ Msg parse_xterm_message(char* buf) {
     }
 
     if (!strcmp(copy, CLIENT_XTERM_QUIT_STR)) {
-        msg.command = CLOSE_XTERM;
+        msg.command = XTERM_CLOSE;
     } else if (copy[0] == '/') {
         msg.command = INVALID_USER_INPUT;
     } else {
@@ -73,11 +81,10 @@ void process_xterm_message(Msg* msg, XtermState* state) {
             printf("> %s\n", msg->message);
             break;
 
-        case CLOSE_XTERM:
-            // TODO notify client
+        case XTERM_CLOSE:
+            // reusing signal handler function
+            signal_exit_handler();
 
-            // what about free?
-            exit(EXIT_SUCCESS);
             break;
 
         case INVALID_USER_INPUT:
@@ -103,8 +110,14 @@ void process_xterm_message(Msg* msg, XtermState* state) {
     }
 }
 
+
 int main(int argc, char *argv[]) {
-    // sleep(20);
+    signal(SIGINT, signal_exit_handler);
+    signal(SIGQUIT, signal_exit_handler);
+    signal(SIGKILL, signal_exit_handler);
+    signal(SIGTERM, signal_exit_handler);
+    signal(SIGHUP, signal_exit_handler);
+
     XtermState state = {0};
 
     state.username = argv[1];
@@ -125,7 +138,7 @@ int main(int argc, char *argv[]) {
     poll_fds[1].fd = STDIN_FILENO;
     poll_fds[1].events = POLLIN|POLLPRI;
 
-    while(true) {
+    while(running) {
         poll(poll_fds, 2, -1);
 
         if(poll_fds[0].revents & POLLHUP) {
@@ -152,6 +165,15 @@ int main(int argc, char *argv[]) {
             }
         }
     }
+
+    // let client know we are exiting and give username to help cleanup
+    write(state.write_fd, XTERM_EXIT_STR, 5);
+    write(state.write_fd, " ", 1);
+    write(state.write_fd, state.username, strlen(state.username));
+    write(state.write_fd, END_OF_MESSAGE_SEQUENCE, END_OF_MESSAGE_SEQUENCE_LENGTH);
+
+    close(state.read_fd);
+    close(state.write_fd);
 
     return 0;
 }
