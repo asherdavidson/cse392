@@ -64,7 +64,6 @@ int main(int argc, char *argv[]) {
 
         // if number of user client talks to changes, reinit pollfds
         if(app_state.fds_changed) {
-            printf("%s\n", "Num FDs changed");
             int num_fds = 2;    // start with 2 for STDIN and socket
 
             ChatWindow *curr = app_state.next_window;
@@ -88,8 +87,6 @@ int main(int argc, char *argv[]) {
                 poll_fds[i].fd = curr->child_to_parent[0];
                 poll_fds[i].events = POLLIN | POLLPRI;
             }
-
-            printf("%s %d\n", "Numfds", num_fds);
 
             app_state.num_fds = num_fds;
             app_state.fds_changed = false;

@@ -63,6 +63,9 @@ Msg parse_client_message(char *buf) {
         *space_loc = 0;
 
         msg.message = ++space_loc;
+    } else if (!strcmp(buf, SEND_MESSAGE_RESPONSE_SUCCESS_STR)) {
+        msg.command = XTERM_OWN_MESSAGE;
+        msg.message = ++space_loc;
     } else {
         printf("%s\n", "Unrecognized");
         msg.command = XTERM_BAD_MSG;
@@ -82,6 +85,10 @@ void process_xterm_message(Msg* msg, XtermState* state) {
             printf("> %s\n", msg->message);
             break;
 
+        case XTERM_OWN_MESSAGE:
+            printf("< %s\n", msg->message);
+            break;
+
         case XTERM_CLOSE:
             // reusing signal handler function
             signal_exit_handler();
@@ -94,7 +101,7 @@ void process_xterm_message(Msg* msg, XtermState* state) {
 
         case SEND_MESSAGE:
             // TODO send message and process on client side
-            printf("< %s\n", msg->message);
+            // printf("< %s\n", msg->message);
 
             write(state->write_fd, "TO ", 3);
             write(state->write_fd, state->username, strlen(state->username));
@@ -114,6 +121,8 @@ void process_xterm_message(Msg* msg, XtermState* state) {
 
 
 int main(int argc, char *argv[]) {
+    // sleep(20);
+
     signal(SIGINT, signal_exit_handler);
     signal(SIGQUIT, signal_exit_handler);
     signal(SIGKILL, signal_exit_handler);

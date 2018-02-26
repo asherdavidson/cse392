@@ -271,7 +271,7 @@ void send_message(ApplicationState *app_state, Msg msg) {
 
         // copy message if there is one
         if(msg.message) {
-            size_t len = strlen(msg.message);
+            size_t len = strlen(msg.message) + 1;
 
             conn->msg.message = malloc(len);
             strncpy(conn->msg.message, msg.message, len);
@@ -302,7 +302,7 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
         case CONNECT_RESPONSE:
             debug("CONNECT_RESPONSE");
             if (app_state->connection_state != CONNECTING
-                || !find_matching_connection(app_state, msg)) {
+                || !find_matching_connection(app_state, msg, NULL)) {
                 exit_error(UNREQUESTED_PROTOCOL_MESSAGE);
             }
 
@@ -322,7 +322,7 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
         case REGISTER_USERNAME_RESPONSE_TAKEN:
             debug("REGISTER_USERNAME_RESPONSE_TAKEN");
             if (app_state->connection_state != REGISTERING_USERNAME
-                || !find_matching_connection(app_state, msg)) {
+                || !find_matching_connection(app_state, msg, NULL)) {
                 exit_error(UNREQUESTED_PROTOCOL_MESSAGE);
             }
 
@@ -333,7 +333,7 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
         case REGISTER_USERNAME_RESPONSE_SUCCESS:
             debug("REGISTER_USERNAME_RESPONSE_SUCCESS");
             if(app_state->connection_state != REGISTERING_USERNAME
-                || !find_matching_connection(app_state, msg)) {
+                || !find_matching_connection(app_state, msg, NULL)) {
                 exit_error("Unexpected Username Response Sucess Msg");
             }
 
@@ -376,7 +376,7 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
         case LIST_USERS_RESPONSE:
             debug("LIST_USERS_RESPONSE");
             if(app_state->connection_state != LOGGED_IN
-                || !find_matching_connection(app_state, msg)) {
+                || !find_matching_connection(app_state, msg, NULL)) {
                 exit_error("Unexpected Userlist");
             }
 
@@ -398,25 +398,28 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
 
         case SEND_MESSAGE_RESPONSE_SUCCESS:
             debug("SEND_MESSAGE_RESPONSE_SUCCESS");
+            char* prev_msg = NULL;
+
             if(app_state->connection_state != LOGGED_IN
-                || !find_matching_connection(app_state, msg)) {
+                || !find_matching_connection(app_state, msg, &prev_msg)) {
                 exit_error("Unexpected Send Msg Success Response Msg");
             }
 
-            printf("%s\n", "RES Success");
-
             // only open window if other user exists
-            // TODO find the msg that was sent and write it to xterm
+            // internal usage of OT for chat/client: OT <msg>
             ChatWindow *window = create_or_get_window(app_state, msg->username);
-            write(window->parent_to_child[1], msg->buf, strlen(msg->buf));
+            write(window->parent_to_child[1], "OT ", 3);
+            write(window->parent_to_child[1], prev_msg, strlen(prev_msg));
             write(window->parent_to_child[1], END_OF_MESSAGE_SEQUENCE, 4);
+
+            free(prev_msg);
 
             break;
 
         case SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST:
             debug("SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST");
             if(app_state->connection_state != LOGGED_IN
-                || !find_matching_connection(app_state, msg))
+                || !find_matching_connection(app_state, msg, NULL))
                 exit_error("Unexpected Send Msg DNE Response Msg");
 
             printf("Receipient %s does not exist\n", msg->username);
@@ -457,7 +460,7 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
         case LOGOUT_RESPONSE:
             debug("LOGOUT_RESPONSE");
             if(app_state->connection_state != QUITTING
-                || !find_matching_connection(app_state, msg))
+                || !find_matching_connection(app_state, msg, NULL))
                 exit_error("Unexpected Logout Response");
 
             printf("%s\n", "Logged out");

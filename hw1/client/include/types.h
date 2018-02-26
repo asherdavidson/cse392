@@ -61,6 +61,7 @@ typedef enum {
     XTERM_CLOSE,
     XTERM_USER_DOES_NOT_EXIST,
     XTERM_USER_MESSAGE,
+    XTERM_OWN_MESSAGE,
     XTERM_BAD_MSG
 } Cmd;
 

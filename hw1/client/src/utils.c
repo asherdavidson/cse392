@@ -45,7 +45,9 @@ void remove_connection(ApplicationState *app_state, OutgoingConnection *conn) {
 
 }
 
-bool find_matching_connection(ApplicationState *app_state, Msg *msg) {
+
+// modified to return message for SEND_MESSAGE
+bool find_matching_connection(ApplicationState *app_state, Msg *msg, char **previous_msg) {
     OutgoingConnection *conn = app_state->next_conn;
 
     while (conn) {
@@ -73,9 +75,16 @@ bool find_matching_connection(ApplicationState *app_state, Msg *msg) {
                 break;
 
             case SEND_MESSAGE_RESPONSE_SUCCESS:
+                if (!conn->msg.message) {
+                    debug("No corresponding message");
+                }
+
+                ssize_t len = strlen(conn->msg.message);
+                *previous_msg = malloc(len + 1);
+                strncpy(*previous_msg, conn->msg.message, len);
+
             case SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST:
                 if (conn->msg.command == SEND_MESSAGE) {
-                    printf("%s\n", conn->msg.message);;
                     remove_connection(app_state, conn);
                     return true;
                 }
