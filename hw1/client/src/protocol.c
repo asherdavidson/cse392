@@ -472,7 +472,7 @@ void process_messsage(ApplicationState* app_state, Msg* msg) {
             if(app_state->connection_state != LOGGED_IN)
                 exit_error("Unexpected User Logout Broadcast");
 
-            // print user logged off message
+            printf("%s has logged off\n", msg->username);
             break;
 
         case XTERM_CLOSE:
