@@ -1,3 +1,2 @@
-client
-chat/chat
+bin/*
 *.o
