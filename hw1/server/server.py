@@ -1,9 +1,11 @@
 import socket
 import argparse
 import select
+import sys
 
 from queue import Queue
 from threading import Thread
+from enum import Enum, auto
 
 
 CONNECT                              = "ME2U"
@@ -29,14 +31,57 @@ HOST = ''
 
 END_OF_MESSAGE_SEQUENCE = '\r\n\r\n'
 
+VERBOSE = False
+
+running = True
+
+MOTD = ''
+
 # elements are of the form (conn, msg)
 # conn is the socket object that sent us the message
 # msg is a Message object
 unprocessed_messages = Queue()
 
-# incoming data is stored by conn object
-# i.e. incoming_data[conn] = '<data>'
-incoming_data = {}
+# conn_info[conn] = ConnectionInfo
+conn_info = {}
+
+
+class ConnectionState(Enum):
+    CONNECTING = auto()
+    CONNECTED = auto()
+    LOGGED_IN = auto()
+    QUITTING = auto()
+
+
+class ConnectionInfo(object):
+    def __init__(self, conn):
+        self.conn = conn
+        self.username = None
+        self.state = ConnectionState.CONNECTING
+        self.incoming_data = ''
+        self.closed = False
+        self.received = []
+
+    def valid_receive_response(self, msg):
+        for msg_r in self.received:
+            if msg_r.username == msg.username:
+                self.received.remove(msg_r)
+                return msg_r
+
+    def close(self):
+        self.closed = True
+
+    def connecting(self):
+        return self.state == ConnectionState.CONNECTING
+
+    def connected(self):
+        return self.state == ConnectionState.CONNECTED
+
+    def logged_in(self):
+        return self.state == ConnectionState.LOGGED_IN
+
+    def quitting(self):
+        return self.state == ConnectionState.QUITTING
 
 
 class Message(object):
@@ -132,17 +177,13 @@ def read_data(conn):
     if len(buf) == 0:
         raise EOFError('connection closed')
 
-    if conn in incoming_data:
-        incoming_data[conn] += buf
-
-    else:
-        incoming_data[conn] = buf
+    conn_info[conn].incoming_data += buf
 
 
 def get_messages(conn):
     messages = []
 
-    buf = incoming_data.get(conn, '')
+    buf = conn_info[conn].incoming_data
 
     start = 0
     end = buf.find(END_OF_MESSAGE_SEQUENCE, start)
@@ -153,12 +194,36 @@ def get_messages(conn):
         start = end + len(END_OF_MESSAGE_SEQUENCE)
         end = buf.find(END_OF_MESSAGE_SEQUENCE, start)
 
-    incoming_data[conn] = buf[start:]
+    conn_info[conn].incoming_data = buf[start:]
 
     return messages
 
 
-def start_server(port_number, motd, verbose):
+def list_diff(a, b):
+    b = set(b)
+    return [x for x in a if x not in b]
+
+
+def process_server_command(command):
+    global running
+
+    if command == '/users':
+        users = [c_info.username for c_info in conn_info if c_info.username] or ['No users online']
+        print('\n'.join(users))
+
+    elif command == '/help':
+        print('/users     Displays a list of all online users')
+        print('/help      Displays this help message')
+        print('/shutdown  Shutdown the server')
+
+    elif command == '/shutdown':
+        running = False
+
+    else:
+        print('Invalid command')
+
+
+def start_server(port_number):
     with socket.socket(socket.AF_INET) as s:
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind((HOST, port_number))
@@ -166,21 +231,31 @@ def start_server(port_number, motd, verbose):
 
         poll = select.poll()
         poll.register(s, select.POLLIN)
+        poll.register(sys.stdin, select.POLLIN)
 
-        client_conns = []
+        while running:
+            # clean up closed connections
+            expired_conns = [c_info.conn for c_info in conn_info.values() if c_info.closed]
+            for conn in expired_conns:
+                poll.unregister(conn)
+                del conn_info[conn]
+                conn.close()
 
-        while True:
-            for fd, event in poll.poll():
-                print(fd, event)
 
+            for fd, event in poll.poll(200):
                 # new incoming connection
                 if fd == s.fileno():
                     conn, addr = s.accept()
-                    client_conns.append(conn)
                     poll.register(conn, select.POLLIN)
+                    conn_info[conn] = ConnectionInfo(conn)
+
+                # read from stdin
+                if fd == sys.stdin.fileno():
+                    command = sys.stdin.readline().strip()
+                    process_server_command(command)
 
                 # new message from existing connection
-                for conn in client_conns:
+                for conn in conn_info:
                     if fd == conn.fileno():
                         # read all available data from the socket
                         try:
@@ -189,8 +264,9 @@ def start_server(port_number, motd, verbose):
                         # the socket was closed
                         except EOFError:
                             poll.unregister(conn)
-                            client_conns.remove(conn)
+                            del conn_info[conn]
                             conn.close()
+                            break
 
                     # parse all available messages
                     messages = get_messages(conn)
@@ -206,27 +282,120 @@ def start_server(port_number, motd, verbose):
                         # invalid message (close the connection)
                         else:
                             poll.unregister(conn)
-                            client_conns.remove(conn)
                             conn.close()
 
 
-        for conn in client_conns:
+        for conn in conn_info:
             conn.close()
 
 
-def worker_thread():
-    running = True
-
-    while running:
-        conn, msg = unprocessed_messages.get()
-
+def send_message(conn, msg):
+    if VERBOSE:
         print(msg)
-        conn.sendall(msg.encode())
-
-        unprocessed_messages.task_done()
+    conn.sendall(msg.encode())
 
 
-def start_workers(num_workers, verbose):
+def username_taken(username):
+    for c_info in conn_info.values():
+        if c_info.username == username:
+            return True
+    return False
+
+
+def get_conn_info_by_username(username):
+    for c_info in conn_info.values():
+        if c_info.username == username and not c_info.closed:
+            return c_info
+    return None
+
+
+def get_open_connections():
+    return [c_info.conn for c_info in conn_info.values() if not c_info.closed]
+
+
+def process_message(conn, msg):
+    if msg.command == CONNECT and conn_info[conn].connecting():
+        reply = Message(CONNECT_RESPONSE)
+        send_message(conn, reply)
+        conn_info[conn].state = ConnectionState.CONNECTED
+
+    elif msg.command == REGISTER_USERNAME and conn_info[conn].connected():
+        if len(msg.username) > 10:
+            conn_info[conn].close()
+
+        elif username_taken(msg.username):
+            reply = Message(REGISTER_USERNAME_RESPONSE_TAKEN)
+            send_message(conn, reply)
+
+        else:
+            reply = Message(REGISTER_USERNAME_RESPONSE_SUCCESS)
+            send_message(conn, reply)
+
+            reply = Message(DAILY_MESSAGE, message=MOTD)
+            send_message(conn, reply)
+
+            conn_info[conn].username = msg.username
+            conn_info[conn].state = ConnectionState.LOGGED_IN
+
+    elif msg.command == LIST_USERS and conn_info[conn].logged_in():
+        users = [c_info.username for c_info in conn_info.values() if c_info.username]
+
+        reply = Message(LIST_USERS_RESPONSE, users=users)
+        send_message(conn, reply)
+
+    elif msg.command == SEND_MESSAGE and conn_info[conn].logged_in():
+        recv_conn_info = get_conn_info_by_username(msg.username)
+
+        if not recv_conn_info:
+            reply = Message(SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST, username=msg.username)
+            send_message(conn, reply)
+
+        else:
+            from_msg = Message(RECEIVE_MESSAGE, username=conn_info[conn].username, message=msg.message)
+            send_message(recv_conn_info.conn, from_msg)
+            recv_conn_info.received.append(from_msg)
+
+    elif msg.command == RECEIVE_MESSAGE_SUCCESS and conn_info[conn].logged_in():
+        sender_conn_info = get_conn_info_by_username(msg.username)
+
+        if conn_info[conn].valid_receive_response(msg):
+            sender_reply = Message(SEND_MESSAGE_RESPONSE_SUCCESS, username=conn_info[conn].username)
+            send_message(sender_conn_info.conn, sender_reply)
+
+        else:
+            conn.close()
+
+    elif msg.command == LOGOUT and conn_info[conn].logged_in():
+        reply = Message(LOGOUT_RESPONSE)
+        send_message(conn, reply)
+
+        conn_info[conn].close()
+
+        broadcast = Message(USER_LOGGED_OFF, username=conn_info[conn].username)
+        for conn in get_open_connections():
+            send_message(conn, broadcast)
+
+
+def worker_thread():
+    while True:
+        try:
+            conn, msg = unprocessed_messages.get()
+
+            if VERBOSE:
+                print(msg)
+
+            process_message(conn, msg)
+
+        except Exception as e:
+            raise e
+            continue
+
+        finally:
+            unprocessed_messages.task_done()
+
+
+
+def start_workers(num_workers):
     for _ in range(num_workers):
         t = Thread(target=worker_thread, daemon=True)
         t.start()
@@ -241,15 +410,8 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
-    print(args)
+    VERBOSE = args.verbose
+    MOTD = args.motd
 
-    print('POLLIN', select.POLLIN)
-    print('POLLPRI', select.POLLPRI)
-    print('POLLOUT', select.POLLOUT)
-    print('POLLERR', select.POLLERR)
-    print('POLLHUP', select.POLLHUP)
-    print('POLLRDHUP', select.POLLRDHUP)
-    print('POLLNVAL', select.POLLNVAL)
-
-    start_workers(args.num_workers, args.verbose)
-    start_server(args.port_number, args.motd, args.verbose)
+    start_workers(args.num_workers)
+    start_server(args.port_number)
