@@ -57,6 +57,7 @@ Msg parse_client_message(char *buf) {
     if(!strcmp(buf, SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST_STR)) {
         msg.command = XTERM_USER_DOES_NOT_EXIST;
     } else if(!strcmp(buf, RECEIVE_MESSAGE_STR)) {
+        // Message from another user
         msg.command = XTERM_USER_MESSAGE;
         // Messages from client should be well formed
         space_loc = strchr(space_loc + 1, ' ');
@@ -134,8 +135,6 @@ int main(int argc, char *argv[]) {
     state.username = argv[1];
     state.read_fd = atoi(argv[2]);
     state.write_fd = atoi(argv[3]);
-
-    printf("%s, %d, %d \n", state.username, state.read_fd, state.write_fd);
 
     char *stdin_buf = NULL;
     char *client_buf = NULL;

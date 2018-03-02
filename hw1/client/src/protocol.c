@@ -271,9 +271,9 @@ void send_message(ApplicationState *app_state, Msg msg) {
 
         // copy message if there is one
         if(msg.message) {
-            size_t len = strlen(msg.message) + 1;
+            size_t len = strlen(msg.message);
 
-            conn->msg.message = malloc(len);
+            conn->msg.message = calloc(len + 1, 1);
             strncpy(conn->msg.message, msg.message, len);
         }
 

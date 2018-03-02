@@ -80,7 +80,8 @@ bool find_matching_connection(ApplicationState *app_state, Msg *msg, char **prev
                 }
 
                 ssize_t len = strlen(conn->msg.message);
-                *previous_msg = malloc(len + 1);
+
+                *previous_msg = calloc(len + 1, 1);
                 strncpy(*previous_msg, conn->msg.message, len);
 
             case SEND_MESSAGE_RESPONSE_DOES_NOT_EXIST:

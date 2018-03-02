@@ -135,8 +135,6 @@ int main(int argc, char *argv[]) {
             if(poll_fds[i].revents & POLLIN) {
                 int n = read_until_terminator(poll_fds[i].fd, &xterm_buf, END_OF_MESSAGE_SEQUENCE);
                 if (n > 0) {
-                    printf("%s\n", xterm_buf);
-
                     Msg msg = parse_window_message(xterm_buf);
                     process_messsage(&app_state, &msg);
 
