@@ -199,11 +199,6 @@ def get_messages(conn):
     return messages
 
 
-def list_diff(a, b):
-    b = set(b)
-    return [x for x in a if x not in b]
-
-
 def process_server_command(command):
     global running
 
