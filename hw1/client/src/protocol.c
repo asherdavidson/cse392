@@ -285,6 +285,8 @@ void send_message(ApplicationState *app_state, Msg msg) {
     char *encoded_message;
     int n = encode_message(&encoded_message, msg);
 
+    verbose(encoded_message);
+
     // send message
     // TODO: Handle EINTR?
     int stat;
@@ -298,6 +300,8 @@ void send_message(ApplicationState *app_state, Msg msg) {
 
 
 void process_messsage(ApplicationState* app_state, Msg* msg) {
+    verbose(msg->buf);
+
     switch (msg->command) {
         case CONNECT_RESPONSE:
             debug("CONNECT_RESPONSE");

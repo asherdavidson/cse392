@@ -47,6 +47,7 @@ conn_info = {}
 
 
 class ConnectionState(Enum):
+    """Client socket connection states"""
     CONNECTING = auto()
     CONNECTED = auto()
     LOGGED_IN = auto()
@@ -54,37 +55,45 @@ class ConnectionState(Enum):
 
 
 class ConnectionInfo(object):
+    """State for each connection"""
     def __init__(self, conn):
-        self.conn = conn
+        self.conn = conn  # socket
         self.username = None
         self.state = ConnectionState.CONNECTING
-        self.incoming_data = ''
+        self.incoming_data = ''  # received data buffer
         self.closed = False
-        self.received = []
+        self.received = []  # messages this user needs to confirm
 
     def valid_receive_response(self, msg):
+        """Checks if the received confirmation is valid"""
         for msg_r in self.received:
             if msg_r.username == msg.username:
                 self.received.remove(msg_r)
                 return msg_r
 
     def close(self):
+        """Marks the socket as closed to be cleaned up by the main thread"""
         self.closed = True
 
     def connecting(self):
+        """Checks if the state is CONNECTING"""
         return self.state == ConnectionState.CONNECTING
 
     def connected(self):
+        """Checks if the state is CONNECTED"""
         return self.state == ConnectionState.CONNECTED
 
     def logged_in(self):
+        """Checks if the state is LOGGED_IN"""
         return self.state == ConnectionState.LOGGED_IN
 
     def quitting(self):
+        """Checks if the state is QUITTING"""
         return self.state == ConnectionState.QUITTING
 
 
 class Message(object):
+    """Parses and encodes messages"""
     def __init__(self, command, username='', message='', users=''):
         self.command = command
         self.username = username
@@ -92,6 +101,7 @@ class Message(object):
         self.users = users
 
     def __str__(self):
+        """Converts the message into the protocol format"""
         if self.command == CONNECT:
             return CONNECT
 
@@ -141,27 +151,40 @@ class Message(object):
             return '{} {}'.format(USER_LOGGED_OFF, self.username)
 
     def encode(self):
+        """Converts the message object into the protocol format
+        and turns it into a bytes object."""
         msg = str(self) + END_OF_MESSAGE_SEQUENCE
         return msg.encode()
 
     @classmethod
     def parse(cls, msg):
+        """Parses a string into a message.
+        Returns None if the message is invalid"""
         if msg.startswith(CONNECT):
             return Message(command=CONNECT)
 
         elif msg.startswith(REGISTER_USERNAME):
-            command, username = msg.split(' ', 2)
+            parts = msg.split(' ', 2)
+            if len(parts) != 2:
+                return None
+            command, username = parts
             return Message(command=REGISTER_USERNAME, username=username)
 
         elif msg.startswith(LIST_USERS):
             return Message(command=LIST_USERS)
 
         elif msg.startswith(SEND_MESSAGE):
-            command, username, message = msg.split(' ', 3)
+            parts = msg.split(' ', 3)
+            if len(parts) != 3:
+                return None
+            command, username, message = parts
             return Message(command=SEND_MESSAGE, username=username, message=message)
 
         elif msg.startswith(RECEIVE_MESSAGE_SUCCESS):
-            command, username = msg.split(' ', 2)
+            parts = msg.split(' ', 2)
+            if len(parts) != 2:
+                return None
+            command, username = parts
             return Message(command=RECEIVE_MESSAGE_SUCCESS, username=username)
 
         elif msg.startswith(LOGOUT):
@@ -172,6 +195,9 @@ class Message(object):
 
 
 def read_data(conn):
+    """Reads up to 4096 bytes from the socket.
+    The data is stored in the sockets incoming_data buffer.
+    Raises EOFError if the connection is closed."""
     buf = conn.recv(4096).decode()
 
     if len(buf) == 0:
@@ -181,10 +207,16 @@ def read_data(conn):
 
 
 def get_messages(conn):
+    """Parses a connections incoming_data buffer into messages.
+    Incomplete messages are left in the buffer until the remaining
+    data is received.
+    Returns as many parsable messages as possible."""
+
     messages = []
 
     buf = conn_info[conn].incoming_data
 
+    # start and end indices
     start = 0
     end = buf.find(END_OF_MESSAGE_SEQUENCE, start)
 
@@ -194,39 +226,46 @@ def get_messages(conn):
         start = end + len(END_OF_MESSAGE_SEQUENCE)
         end = buf.find(END_OF_MESSAGE_SEQUENCE, start)
 
+    # clean up parsed messages from the buffer
     conn_info[conn].incoming_data = buf[start:]
 
     return messages
 
 
 def process_server_command(command):
+    """Parses and runs the server cli argument"""
     global running
 
+    # Print the users online
     if command == '/users':
         users = [c_info.username for c_info in conn_info if c_info.username] or ['No users online']
         print('\n'.join(users))
 
+    # Print the help page
     elif command == '/help':
         print('/users     Displays a list of all online users')
         print('/help      Displays this help message')
         print('/shutdown  Shutdown the server')
 
+    # Shutdown the server
     elif command == '/shutdown':
         running = False
 
+    # Invalid command
     else:
         print('Invalid command')
 
 
 def start_server(port_number):
+    """Starts the server"""
     with socket.socket(socket.AF_INET) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # reuse freshly closed port
         s.bind((HOST, port_number))
         s.listen()
 
         poll = select.poll()
-        poll.register(s, select.POLLIN)
-        poll.register(sys.stdin, select.POLLIN)
+        poll.register(s, select.POLLIN)  # accept connections
+        poll.register(sys.stdin, select.POLLIN)  # server commands
 
         while running:
             # clean up closed connections
@@ -237,8 +276,9 @@ def start_server(port_number):
                 conn.close()
 
 
+            # timeout in case the server needs to be shutdown
             for fd, event in poll.poll(200):
-                # new incoming connection
+                # add new incoming connection
                 if fd == s.fileno():
                     conn, addr = s.accept()
                     poll.register(conn, select.POLLIN)
@@ -263,15 +303,16 @@ def start_server(port_number):
                             conn.close()
                             break
 
-                    # parse all available messages
+                    # get the raw message strings
                     messages = get_messages(conn)
 
-                    # add the messages to the queue
                     for raw_msg in messages:
+                        # parse the message
                         msg = Message.parse(raw_msg)
 
                         # valid message
                         if msg:
+                            # add to the queue
                             unprocessed_messages.put((conn, msg))
 
                         # invalid message (close the connection)
@@ -280,17 +321,22 @@ def start_server(port_number):
                             conn.close()
 
 
+        # server is closing
+        # clean up the remaining connections
         for conn in conn_info:
             conn.close()
 
 
 def send_message(conn, msg):
+    """Send a Message object across a connection.
+    The message is guaranteed to be sent to completion."""
     if VERBOSE:
         print(msg)
     conn.sendall(msg.encode())
 
 
 def username_taken(username):
+    """Checks if the username is taken"""
     for c_info in conn_info.values():
         if c_info.username == username:
             return True
@@ -298,6 +344,8 @@ def username_taken(username):
 
 
 def get_conn_info_by_username(username):
+    """Returns a ConnectionInfo object from a username.
+    Returns None if the username is not taken."""
     for c_info in conn_info.values():
         if c_info.username == username and not c_info.closed:
             return c_info
@@ -305,10 +353,12 @@ def get_conn_info_by_username(username):
 
 
 def get_open_connections():
+    """Returns the open connections (not marked closed)"""
     return [c_info.conn for c_info in conn_info.values() if not c_info.closed]
 
 
 def process_message(conn, msg):
+    """Processes the message and sends out any required outgoing messages"""
     if msg.command == CONNECT and conn_info[conn].connecting():
         reply = Message(CONNECT_RESPONSE)
         send_message(conn, reply)
@@ -372,6 +422,7 @@ def process_message(conn, msg):
 
 
 def worker_thread():
+    """gets one message and processes it"""
     while True:
         try:
             conn, msg = unprocessed_messages.get()
@@ -382,7 +433,7 @@ def worker_thread():
             process_message(conn, msg)
 
         except Exception as e:
-            raise e
+            conn_info[conn].close()
             continue
 
         finally:
@@ -391,6 +442,7 @@ def worker_thread():
 
 
 def start_workers(num_workers):
+    """Start the workers and mark them to close when the main thread closes"""
     for _ in range(num_workers):
         t = Thread(target=worker_thread, daemon=True)
         t.start()
@@ -405,6 +457,7 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    # Set global flags
     VERBOSE = args.verbose
     MOTD = args.motd
 

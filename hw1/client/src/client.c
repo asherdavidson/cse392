@@ -14,14 +14,17 @@
 #include "utils.h"
 #include "protocol.h"
 
+int verboseFlag;
 
 int main(int argc, char *argv[]) {
-    int verboseFlag = 0;
+    verboseFlag = 0;
     char *username = NULL;
     char *address = NULL;
     char *port = NULL;
 
     parseArgs(argc, argv, &verboseFlag, &username, &address, &port);
+
+    printf("%d\n", verboseFlag);
 
     // get socket connection
     int socket_fd = init_socket(address, port);

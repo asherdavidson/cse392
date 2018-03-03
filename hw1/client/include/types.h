@@ -39,6 +39,8 @@
 #define CLIENT_CHAT_STR   "/chat"
 #define CLIENT_XTERM_QUIT_STR "/close"
 
+extern int verboseFlag;
+
 typedef enum {
     CONNECT,
     CONNECT_RESPONSE,

@@ -21,7 +21,27 @@ void exit_error(char *msg) {
 }
 
 void debug(char *msg) {
-    printf("\x1B[1;34m%s\x1B[0m\n", msg);
+    // printf("\x1B[1;34m%s\x1B[0m\n", msg);
+}
+
+void verbose(char *msg) {
+    if (!msg)
+        return;
+
+    if (verboseFlag) {
+        // remove end of line terminator
+        char *end = strstr(msg, END_OF_MESSAGE_SEQUENCE);
+        if (end) {
+            int len = (int)(end - msg);
+            char buf[len+1];
+            strncpy(buf, msg, len);
+            buf[len] = 0;
+            printf("\x1B[1;34m%s\x1B[0m\n", buf);
+
+        } else {
+            printf("\x1B[1;34m%s\x1B[0m\n", msg);
+        }
+    }
 }
 
 void remove_connection(ApplicationState *app_state, OutgoingConnection *conn) {

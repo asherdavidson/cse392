@@ -13,6 +13,8 @@
 
 static volatile bool running = true;
 
+int verboseFlag;
+
 void signal_exit_handler() {
     running = false;
 }

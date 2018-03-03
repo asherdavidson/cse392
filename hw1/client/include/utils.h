@@ -7,6 +7,8 @@ void exit_error(char *msg);
 
 void debug(char *msg);
 
+void verbose(char *msg);
+
 bool find_matching_connection(ApplicationState *app_state, Msg *msg, char **previous_msg);
 
 int parse_user_list(char* buf, char*** users);
