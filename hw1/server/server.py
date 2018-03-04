@@ -164,7 +164,7 @@ class Message(object):
             return Message(command=CONNECT)
 
         elif msg.startswith(REGISTER_USERNAME):
-            parts = msg.split(' ', 2)
+            parts = msg.split(' ')
             if len(parts) != 2:
                 return None
             command, username = parts
@@ -174,14 +174,14 @@ class Message(object):
             return Message(command=LIST_USERS)
 
         elif msg.startswith(SEND_MESSAGE):
-            parts = msg.split(' ', 3)
+            parts = msg.split(' ')
             if len(parts) != 3:
                 return None
             command, username, message = parts
             return Message(command=SEND_MESSAGE, username=username, message=message)
 
         elif msg.startswith(RECEIVE_MESSAGE_SUCCESS):
-            parts = msg.split(' ', 2)
+            parts = msg.split(' ')
             if len(parts) != 2:
                 return None
             command, username = parts
@@ -298,9 +298,7 @@ def start_server(port_number):
 
                         # the socket was closed
                         except EOFError:
-                            poll.unregister(conn)
-                            del conn_info[conn]
-                            conn.close()
+                            conn_info[conn].close()
                             break
 
                     # get the raw message strings
@@ -319,8 +317,7 @@ def start_server(port_number):
                         else:
                             if VERBOSE:
                                 print("Invalid message:", raw_msg)
-                            poll.unregister(conn)
-                            conn.close()
+                            conn_info[conn].close()
 
 
         # server is closing
