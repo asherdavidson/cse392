@@ -317,6 +317,8 @@ def start_server(port_number):
 
                         # invalid message (close the connection)
                         else:
+                            if VERBOSE:
+                                print("Invalid message:", raw_msg)
                             poll.unregister(conn)
                             conn.close()
 
