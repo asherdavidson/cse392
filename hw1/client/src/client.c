@@ -22,6 +22,8 @@ int main(int argc, char *argv[]) {
     char *address = NULL;
     char *port = NULL;
 
+    pid_t pid = getpid();
+
     parseArgs(argc, argv, &verboseFlag, &username, &address, &port);
 
     printf("%d\n", verboseFlag);
@@ -146,6 +148,10 @@ int main(int argc, char *argv[]) {
             }
         }
     }
+
+    // kill children
+    signal(SIGQUIT, SIG_IGN);
+    kill(-pid, SIGQUIT);
 
     free(poll_fds);
     // good bye

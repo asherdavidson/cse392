@@ -128,7 +128,6 @@ int main(int argc, char *argv[]) {
 
     signal(SIGINT, signal_exit_handler);
     signal(SIGQUIT, signal_exit_handler);
-    signal(SIGKILL, signal_exit_handler);
     signal(SIGTERM, signal_exit_handler);
     signal(SIGHUP, signal_exit_handler);
 
