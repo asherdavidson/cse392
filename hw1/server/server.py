@@ -174,7 +174,7 @@ class Message(object):
             return Message(command=LIST_USERS)
 
         elif msg.startswith(SEND_MESSAGE):
-            parts = msg.split(' ')
+            parts = msg.split(' ', maxsplit=2)
             if len(parts) != 3:
                 return None
             command, username, message = parts
