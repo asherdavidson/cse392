@@ -45,7 +45,7 @@ void verbose(char *msg) {
 }
 
 void remove_connection(ApplicationState *app_state, OutgoingConnection *conn) {
-    // free mem if needed
+    // free msg if needed
     if (conn->msg.message) {
         free(conn->msg.message);
     }
@@ -63,6 +63,7 @@ void remove_connection(ApplicationState *app_state, OutgoingConnection *conn) {
         prev->next = prev->next->next;
     }
 
+    free(conn);
 }
 
 

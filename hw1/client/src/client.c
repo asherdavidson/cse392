@@ -154,6 +154,19 @@ int main(int argc, char *argv[]) {
     kill(-pid, SIGQUIT);
 
     free(poll_fds);
+
+    ChatWindow* curr = app_state.next_window;
+    while(curr) {
+        ChatWindow* next = curr->next;
+        free(curr);
+        curr = next;
+    }
+
+    // free connections
+    while(app_state.next_conn) {
+        free(app_state.next_conn);
+    }
+
     // good bye
     close(socket_fd);
 
