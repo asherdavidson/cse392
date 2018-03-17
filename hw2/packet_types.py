@@ -4,6 +4,9 @@ from hexdump import hexdump, dump
 import constants
 
 
+def hex(s):
+    return f'0x{s:x}'
+
 def pretty_print(classname, args):
     temp = []
     for name, value in args.items():
@@ -42,8 +45,75 @@ ApplicationLayerTypes = {
 #######################
 
 
+class TCP(object):
+    tcp_struct = BitStruct(
+        'source_port' / BitsInteger(16),
+        'dest_port' / BitsInteger(16),
+        'seq_number' / BitsInteger(32),
+        'ack_number' / BitsInteger(32),
+        'data_offset' / BitsInteger(4),
+        'reserved' / BitsInteger(3),
+        'flags' / FlagsEnum(BitsInteger(9),
+            NS  = 0x1 << 8,
+            CWR = 0x1 << 7,
+            ECE = 0x1 << 6,
+            URG = 0x1 << 5,
+            ACK = 0x1 << 4,
+            PSH = 0x1 << 3,
+            RST = 0x1 << 2,
+            SYN = 0x1 << 1,
+            FIN = 0x1 << 0,
+        ),
+        'window_size' / BitsInteger(16),
+        'checksum' / BitsInteger(16),
+        'urgent_pointer' / BitsInteger(16),
+        'options' / BitsInteger(lambda this: (this.data_offset-5)*32)
+    )
+
+    def __init__(self, buf):
+        tcp = TCP.tcp_struct.parse(buf)
+
+        self.source_port    = tcp.source_port
+        self.dest_port      = tcp.dest_port
+        self.seq_number     = tcp.seq_number
+        self.ack_number     = tcp.ack_number
+        self.data_offset    = tcp.data_offset
+        self.reserved       = tcp.reserved
+        self.flags          = tcp.flags
+        self.window_size    = tcp.window_size
+        self.checksum       = tcp.checksum
+        self.urgent_pointer = tcp.urgent_pointer
+        self.options        = tcp.options
+        self.options_length = (tcp.data_offset-5)*4
+
+        next_data = buf[tcp.data_offset*4:]
+
+        self.application_layer = None
+        if ApplicationLayerTypes.get(self.dest_port):
+            self.application_layer = ApplicationLayerTypes[self.dest_port](next_data)
+
+        elif ApplicationLayerTypes.get(self.src_port):
+            self.application_layer = ApplicationLayerTypes[self.src_port](next_data)
+
+    def __str__(self):
+        args = {
+            'src_port':    self.source_port,
+            'dst_port':    self.dest_port,
+            'seq_num':     hex(self.seq_number),
+            'ack_num':     hex(self.ack_number),
+            'data_offset': self.data_offset,
+            'flags':       format_flags(self.flags),
+            'win_size':    self.window_size,
+            'checksum':    hex(self.checksum),
+            'urgent_ptr':  self.urgent_pointer,
+            'options':     hex(self.options),
+        }
+
+        return pretty_print('TCP', args)
+
+
 TransportLayerTypes = {
-    # 6: TCP,
+    6: TCP,
     # 17: UDP,
 }
 
@@ -95,13 +165,16 @@ class IPv4(object):
         self.dest_ip         = ipv4.dest_ip
         self.options         = ipv4.options
 
-        # hexdump(buf[:(ipv4.IHL*4)])
-
         next_data = buf[(ipv4.IHL*4):]
 
-        # hexdump(next_data)
+        self.transport_layer = None
+        if TransportLayerTypes.get(self.protocol):
+            self.transport_layer = TransportLayerTypes[self.protocol](next_data)
 
     def __str__(self):
+        # if self.transport_layer:
+        #     return str(self.transport_layer)
+
         if self.protocol >= 143 and self.protocol <= 252:
             protocol = 'UNASSIGNED'
         elif self.protocol >= 253 and self.protocol <= 254:
@@ -125,7 +198,7 @@ class IPv4(object):
             'dest_ip':         format_ipv4_address(self.dest_ip),
         }
         if self.options:
-            args['options'] = dump(BytesInteger((self.IHL-5)*4).build(self.options))
+            args['options'] = hex(self.options)
 
         return pretty_print('IPv4', args)
 
@@ -164,7 +237,9 @@ class Ethernet(object):
         self.source      = ethernet_header_struct.source
         self.type        = ethernet_header_struct.type
 
-        self.network_layer = NetworkLayerTypes[self.type](buf[14:])
+        self.network_layer = None
+        if NetworkLayerTypes.get(self.type):
+            self.network_layer = NetworkLayerTypes[self.type](buf[14:])
 
     def __str__(self):
         if self.network_layer:
