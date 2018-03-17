@@ -2,11 +2,14 @@ import argparse
 import socket
 import fcntl
 
-import hexdump
+from hexdump import hexdump, dump
+
+from packet_types import *
 
 ETH_P_ALL = 0x0003
 
-def sniff(interface, timeout, dump, filter):
+
+def sniff(interface, timeout, dumphex, filter):
     s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(ETH_P_ALL))
     s.bind((interface, 0))
 
@@ -17,10 +20,14 @@ def sniff(interface, timeout, dump, filter):
     while True:
         buf = s.recv(4096)
 
-        if dump:
-            hexdump.hexdump(buf)
+        if dumphex:
+            hexdump(buf)
             print()
             # print(hexdump.dump(buf))
+
+        else:
+            ethernet_header = Ethernet(buf)
+            print(ethernet_header)
 
     s.close()
 
