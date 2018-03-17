@@ -12,8 +12,10 @@ def pretty_print(classname, args):
 
     return f'{classname}({values})'
 
+
 def format_ipv4_address(addr):
     return f'{addr[0]}.{addr[1]}.{addr[2]}.{addr[3]}'
+
 
 def format_flags(flags):
     temp = []
@@ -22,6 +24,33 @@ def format_flags(flags):
             temp.append(flag)
     values = ', '.join(temp)
     return f'{{{values}}}'
+
+
+
+#########################
+# Layer 7 (Application) #
+#########################
+
+
+ApplicationLayerTypes = {
+
+}
+
+
+#######################
+# Layer 4 (Transport) #
+#######################
+
+
+TransportLayerTypes = {
+    # 6: TCP,
+    # 17: UDP,
+}
+
+
+#####################
+# Layer 3 (Network) #
+#####################
 
 
 # TODO: use inheritance?
@@ -49,10 +78,6 @@ class IPv4(object):
     protocols = constants.IPv4_protocols
 
     def __init__(self, buf):
-        # ipv4_data = buf[:20]
-        # hexdump(ipv4_data)
-        # print()
-
         ipv4 = IPv4.ipv4_struct.parse(buf)
 
         self.version         = ipv4.version
@@ -74,8 +99,7 @@ class IPv4(object):
 
         next_data = buf[(ipv4.IHL*4):]
 
-        hexdump(next_data)
-
+        # hexdump(next_data)
 
     def __str__(self):
         if self.protocol >= 143 and self.protocol <= 252:
@@ -111,6 +135,11 @@ NetworkLayerTypes = {
     # 0x0806: ARP,
     # 0x86DD: IPv6
 }
+
+
+#######################
+# Layer 2 (Data Link) #
+#######################
 
 
 class Ethernet(object):
