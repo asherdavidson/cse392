@@ -92,8 +92,8 @@ class TCP(object):
         if ApplicationLayerTypes.get(self.dest_port):
             self.application_layer = ApplicationLayerTypes[self.dest_port](next_data)
 
-        elif ApplicationLayerTypes.get(self.src_port):
-            self.application_layer = ApplicationLayerTypes[self.src_port](next_data)
+        elif ApplicationLayerTypes.get(self.source_port):
+            self.application_layer = ApplicationLayerTypes[self.source_port](next_data)
 
     def __str__(self):
         args = {
@@ -112,11 +112,44 @@ class TCP(object):
         return pretty_print('TCP', args)
 
 
+class UDP(object):
+    udp_struct = BitStruct(
+        'source_port' / BitsInteger(16),
+        'dest_port' / BitsInteger(16),
+        'length' / BitsInteger(16),
+        'checksum' / BitsInteger(16)
+    )
+
+    def __init__(self, buf):
+        udp = UDP.udp_struct.parse(buf)
+
+        self.source_port    = udp.source_port
+        self.dest_port      = udp.dest_port
+        self.length         = udp.length
+        self.checksum       = udp.checksum
+
+        next_data = buf[64:]
+        self.application_layer = None
+        if ApplicationLayerTypes.get(self.dest_port):
+            self.application_layer = ApplicationLayerTypes[self.dest_port](next_data)
+
+        elif ApplicationLayerTypes.get(self.source_port):
+            self.application_layer = ApplicationLayerTypes[self.source_port](next_data)
+
+    def __str__(self):
+        args = {
+            'src_port':    self.source_port,
+            'dst_port':    self.dest_port,
+            'length':      hex(self.length),
+            'checksum':    hex(self.checksum)
+        }
+
+        return pretty_print('UDP', args)
+
 TransportLayerTypes = {
     6: TCP,
-    # 17: UDP,
+    17: UDP,
 }
-
 
 #####################
 # Layer 3 (Network) #
