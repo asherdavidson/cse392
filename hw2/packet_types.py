@@ -56,22 +56,22 @@ class DNS(object):
 
     segment_struct = (
         'len' / BitsInteger(8),
-        'segment' / PascalString(this._.len, 'ascii')
+        'segment' / PascalString(this.len, 'ascii')
     )
 
     dns_question_struct = BitStruct(
-        'qname' / RepeatUntil(lambda x, lst, ctx: x == 0, segment_struct),
+        'qname' / RepeatUntil(lambda x, lst, ctx: x.len == 0, segment_struct),
         'qtype' / BitsInteger(16),
         'qclas' / BitsInteger(16)
     )
 
     dns_question_struct = BitStruct(
-        'name' / RepeatUntil(lambda x, lst, ctx: x == 0, segment_struct),
+        'name' / RepeatUntil(lambda x, lst, ctx: x.len == 0, segment_struct),
         'type' / BitsInteger(16),
         'class' / BitsInteger(16),
         'ttl' / BitsInteger(32),
         'rdlength' / BitsInteger(16),
-        'rddata', Bytes(this._.rdlength)
+        'rddata', Bytes(this.rdlength)
     )
 
     def __init__(self, buf):
