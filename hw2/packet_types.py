@@ -84,11 +84,45 @@ class DNS(object):
     )
 
     def __init__(self, buf):
-        pass
+        dns = DNS.dns_struct.parse(buf)
+
+        self.id = dns.header.id
+        self.qr = dns.header.qr
+        self.opcode = dns.header.flags
+        self.z = dns.header.z
+        self.rcode = dns.header.rcode
+        self.qd_count = dns.header.qd_count
+        self.an_count = dns.header.an_count
+        self.ns_count = dns.header.ns_count
+        self.ar_count = dns.header.ar_count
+
+        self.question = dns.question
+        self.answer = dns.answer
+        self.authority = dns.authority
+        self.additional = dns.additional
+
+        # next_data stuff? this should be final layer?
 
     def __str__(self):
-        pass
+        args = {
+            'id':       self.id,
+            'qr':       self.qr,
+            'opcode':   self.opcode,
+            'z':        self.z,
+            'rcode':    self.rcode,
+            'qd_count': self.qd_count,
+            'an_count': self.an_count,
+            'ns_count': self.ns_count,
+            'ar_count': self.ar_count,
 
+            # not sure how this will print yet..
+            'question':     self.question,
+            'answer':       self.answer,
+            'authority':    self.authority,
+            'additional':   self.additional       
+        }
+
+        return pretty_print('DNS', args)
 
 ApplicationLayerTypes = {
 
