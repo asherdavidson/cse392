@@ -35,6 +35,52 @@ def format_flags(flags):
 #########################
 
 
+class DNS(object):
+    dns_header_struct = BitStruct(
+        'id' / BitsInteger(16),
+        'qr' / BitsInteger(1),
+        'opcode' / BitsInteger(4),
+        'flags' / FlagsEnum(BitsInteger(4),
+            AA = 0x1 << 3,
+            TC = 0x1 << 2,
+            RD = 0x1 << 1,
+            RA = 0x1 << 0,
+        ),
+        'z' / BitsInteger(3),   # reserved
+        'rcode' / BitsInteger(4),
+        'qd_count' / BitsInteger(16),
+        'an_count' / BitsInteger(16),
+        'ns_count' / BitsInteger(16),
+        'ar_count' / BitsInteger(16)
+    )
+
+    segment_struct = (
+        'len' / BitsInteger(8),
+        'segment' / PascalString(this._.len, 'ascii')
+    )
+
+    dns_question_struct = BitStruct(
+        'qname' / RepeatUntil(lambda x, lst, ctx: x == 0, segment_struct),
+        'qtype' / BitsInteger(16),
+        'qclas' / BitsInteger(16)
+    )
+
+    dns_question_struct = BitStruct(
+        'name' / RepeatUntil(lambda x, lst, ctx: x == 0, segment_struct),
+        'type' / BitsInteger(16),
+        'class' / BitsInteger(16),
+        'ttl' / BitsInteger(32),
+        'rdlength' / BitsInteger(16),
+        'rddata', Bytes(this._.rdlength)
+    )
+
+    def __init__(self, buf):
+        pass
+
+    def __str__(self):
+        pass
+
+
 ApplicationLayerTypes = {
 
 }
@@ -145,6 +191,7 @@ class UDP(object):
         }
 
         return pretty_print('UDP', args)
+
 
 TransportLayerTypes = {
     6: TCP,
