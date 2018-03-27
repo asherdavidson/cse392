@@ -55,23 +55,32 @@ class DNS(object):
     )
 
     segment_struct = (
-        'len' / BitsInteger(8),
+        Padding(2),
+        'len' / BitsInteger(6),
         'segment' / PascalString(this.len, 'ascii')
     )
 
     dns_question_struct = BitStruct(
         'qname' / RepeatUntil(lambda x, lst, ctx: x.len == 0, segment_struct),
         'qtype' / BitsInteger(16),
-        'qclas' / BitsInteger(16)
+        'qclass' / BitsInteger(16)
     )
 
-    dns_question_struct = BitStruct(
+    resource_record_struct = BitStruct(
         'name' / RepeatUntil(lambda x, lst, ctx: x.len == 0, segment_struct),
-        'type' / BitsInteger(16),
-        'class' / BitsInteger(16),
-        'ttl' / BitsInteger(32),
-        'rdlength' / BitsInteger(16),
+        'type' / BytesInteger(2),
+        'class' / BytesInteger(2),
+        'ttl' / BytesInteger(4),
+        'rdlength' / BytesInteger(2),
         'rddata', Bytes(this.rdlength)
+    )
+
+    dns_struct = Struct(
+        'header' / dns_header_struct,
+        'question' / If(this.header.qd_count > 0, dns_question_struct),
+        'answer'  / If(this.header.an_count > 0, resource_record_struct),
+        'authority' / If(this.header.ns_count > 0, resource_record_struct),
+        'additional' / If(this.header.ar_count > 0, resource_record_struct)
     )
 
     def __init__(self, buf):
