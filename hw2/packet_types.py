@@ -29,6 +29,17 @@ def format_flags(flags):
     return f'{{{values}}}'
 
 
+class Layer(object):
+    def __init__(self, buf):
+        self.remaining_bytes = self.parse(buf)
+        self.process_next_layer()
+
+    def parse(self, buf):
+        raise NotImplementedError()
+
+    def process_next_layer(self):
+        raise NotImplementedError()
+
 
 #########################
 # Layer 7 (Application) #
@@ -59,20 +70,20 @@ class DNS(object):
         'segment' / PascalString(this._.len, 'ascii')
     )
 
-    dns_question_struct = BitStruct(
-        'qname' / RepeatUntil(lambda x, lst, ctx: x == 0, segment_struct),
-        'qtype' / BitsInteger(16),
-        'qclas' / BitsInteger(16)
-    )
+    # dns_question_struct = BitStruct(
+    #     'qname' / RepeatUntil(lambda x, lst, ctx: x == 0, segment_struct),
+    #     'qtype' / BitsInteger(16),
+    #     'qclas' / BitsInteger(16)
+    # )
 
-    dns_question_struct = BitStruct(
-        'name' / RepeatUntil(lambda x, lst, ctx: x == 0, segment_struct),
-        'type' / BitsInteger(16),
-        'class' / BitsInteger(16),
-        'ttl' / BitsInteger(32),
-        'rdlength' / BitsInteger(16),
-        'rddata', Bytes(this._.rdlength)
-    )
+    # dns_question_struct = BitStruct(
+    #     'name' / RepeatUntil(lambda x, lst, ctx: x == 0, segment_struct),
+    #     'type' / BitsInteger(16),
+    #     'class' / BitsInteger(16),
+    #     'ttl' / BitsInteger(32),
+    #     'rdlength' / BitsInteger(16),
+    #     'rddata', Bytes(this._.rdlength)
+    # )
 
     def __init__(self, buf):
         pass
@@ -91,7 +102,17 @@ ApplicationLayerTypes = {
 #######################
 
 
-class TCP(object):
+class TransportLayer(Layer):
+    def process_next_layer(self):
+        self.application_layer = None
+        if ApplicationLayerTypes.get(self.dest_port):
+            self.application_layer = ApplicationLayerTypes[self.dest_port](next_data)
+
+        elif ApplicationLayerTypes.get(self.source_port):
+            self.application_layer = ApplicationLayerTypes[self.source_port](next_data)
+
+
+class TCP(TransportLayer):
     tcp_struct = BitStruct(
         'source_port' / BitsInteger(16),
         'dest_port' / BitsInteger(16),
@@ -116,7 +137,7 @@ class TCP(object):
         'options' / BitsInteger(lambda this: (this.data_offset-5)*32)
     )
 
-    def __init__(self, buf):
+    def parse(self, buf):
         tcp = TCP.tcp_struct.parse(buf)
 
         self.source_port    = tcp.source_port
@@ -132,14 +153,7 @@ class TCP(object):
         self.options        = tcp.options
         self.options_length = (tcp.data_offset-5)*4
 
-        next_data = buf[tcp.data_offset*4:]
-
-        self.application_layer = None
-        if ApplicationLayerTypes.get(self.dest_port):
-            self.application_layer = ApplicationLayerTypes[self.dest_port](next_data)
-
-        elif ApplicationLayerTypes.get(self.source_port):
-            self.application_layer = ApplicationLayerTypes[self.source_port](next_data)
+        return buf[tcp.data_offset*4:]
 
     def __str__(self):
         args = {
@@ -158,7 +172,7 @@ class TCP(object):
         return pretty_print('TCP', args)
 
 
-class UDP(object):
+class UDP(TransportLayer):
     udp_struct = BitStruct(
         'source_port' / BitsInteger(16),
         'dest_port' / BitsInteger(16),
@@ -166,21 +180,15 @@ class UDP(object):
         'checksum' / BitsInteger(16)
     )
 
-    def __init__(self, buf):
+    def parse(self, buf):
         udp = UDP.udp_struct.parse(buf)
 
-        self.source_port    = udp.source_port
-        self.dest_port      = udp.dest_port
-        self.length         = udp.length
-        self.checksum       = udp.checksum
+        self.source_port = udp.source_port
+        self.dest_port   = udp.dest_port
+        self.length      = udp.length
+        self.checksum    = udp.checksum
 
-        next_data = buf[64:]
-        self.application_layer = None
-        if ApplicationLayerTypes.get(self.dest_port):
-            self.application_layer = ApplicationLayerTypes[self.dest_port](next_data)
-
-        elif ApplicationLayerTypes.get(self.source_port):
-            self.application_layer = ApplicationLayerTypes[self.source_port](next_data)
+        return buf[64:]
 
     def __str__(self):
         args = {
@@ -203,8 +211,11 @@ TransportLayerTypes = {
 #####################
 
 
-# TODO: use inheritance?
-class IPv4(object):
+class NetworkLayer(Layer):
+    pass
+
+
+class IPv4(NetworkLayer):
     ipv4_struct = BitStruct(
         'version' / BitsInteger(4),
         'IHL' / BitsInteger(4),  # Internet Header Length
@@ -227,7 +238,7 @@ class IPv4(object):
 
     protocols = constants.IPv4_protocols
 
-    def __init__(self, buf):
+    def parse(self, buf):
         ipv4 = IPv4.ipv4_struct.parse(buf)
 
         self.version         = ipv4.version
@@ -245,15 +256,16 @@ class IPv4(object):
         self.dest_ip         = ipv4.dest_ip
         self.options         = ipv4.options
 
-        next_data = buf[(ipv4.IHL*4):]
+        return buf[(ipv4.IHL*4):]
 
+    def process_next_layer(self):
         self.transport_layer = None
         if TransportLayerTypes.get(self.protocol):
-            self.transport_layer = TransportLayerTypes[self.protocol](next_data)
+            self.transport_layer = TransportLayerTypes[self.protocol](self.remaining_bytes)
 
     def __str__(self):
-        # if self.transport_layer:
-        #     return str(self.transport_layer)
+        if self.transport_layer:
+            return str(self.transport_layer)
 
         if self.protocol >= 143 and self.protocol <= 252:
             protocol = 'UNASSIGNED'
@@ -295,7 +307,11 @@ NetworkLayerTypes = {
 #######################
 
 
-class Ethernet(object):
+class DataLinkLayer(Layer):
+    pass
+
+
+class Ethernet(DataLinkLayer):
     struct = Struct(
         'destination' / BytesInteger(6),
         'source' / BytesInteger(6),
@@ -309,7 +325,7 @@ class Ethernet(object):
         0x86DD: 'IPv6'
     }
 
-    def __init__(self, buf):
+    def parse(self, buf):
         ethernet_header = buf[:14]
         ethernet_header_struct = Ethernet.struct.parse(ethernet_header)
 
@@ -317,9 +333,12 @@ class Ethernet(object):
         self.source      = ethernet_header_struct.source
         self.type        = ethernet_header_struct.type
 
+        return buf[14:]
+
+    def process_next_layer(self):
         self.network_layer = None
         if NetworkLayerTypes.get(self.type):
-            self.network_layer = NetworkLayerTypes[self.type](buf[14:])
+            self.network_layer = NetworkLayerTypes[self.type](self.remaining_bytes)
 
     def __str__(self):
         if self.network_layer:
@@ -328,8 +347,8 @@ class Ethernet(object):
         args = {
             'destination': dump(Ethernet.struct.destination.build(self.destination)),
             'source':      dump(Ethernet.struct.source.build(self.source)),
-            'type':        Ethernet.types[self.type],
+            'type':        Ethernet.types.get(self.type, 'Unknown'),
 
         }
 
-        return pretty_print('IPv4', args)
+        return pretty_print('Ethernet', args)
