@@ -54,24 +54,26 @@ class DNS(object):
         'ar_count' / BitsInteger(16)
     )
 
-    segment_struct = (
-        Padding(2),
-        'len' / BitsInteger(6),
-        'segment' / PascalString(this.len, 'ascii')
-    )
+    # segment_struct = (
+    #     Padding(2),
+    #     'len' / BitsInteger(6),
+    #     'segment' / PascalString(Byte, 'ascii')
+    # )
 
     dns_question_struct = BitStruct(
-        'qname' / RepeatUntil(lambda x, lst, ctx: x.len == 0, segment_struct),
+        # 'qname' / RepeatUntil(lambda x, lst, ctx: x.len == 0, segment_struct),
+        'qname' / RepeatUntil(len_(obj_) == 0, PascalString(Byte, "ascii")),
         'qtype' / BitsInteger(16),
         'qclass' / BitsInteger(16)
     )
 
     resource_record_struct = BitStruct(
-        'name' / RepeatUntil(lambda x, lst, ctx: x.len == 0, segment_struct),
-        'type' / BytesInteger(2),
-        'class' / BytesInteger(2),
-        'ttl' / BytesInteger(4),
-        'rdlength' / BytesInteger(2),
+        # 'name' / RepeatUntil(lambda x, lst, ctx: x.len == 0, segment_struct),
+        'name'  / RepeatUntil(len_(obj_) == 0, PascalString(Byte, "ascii")),
+        'type' / BitsInteger(16),
+        'class' / BitsInteger(16),
+        'ttl' / BitsInteger(32),
+        'rdlength' / BitsInteger(16),
         'rddata', Bytes(this.rdlength)
     )
 
@@ -124,8 +126,10 @@ class DNS(object):
 
         return pretty_print('DNS', args)
 
-ApplicationLayerTypes = {
 
+# by port number
+ApplicationLayerTypes = {
+   53 : DNS   # Most DNS is over UDP
 }
 
 
