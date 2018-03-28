@@ -31,8 +31,8 @@ def format_flags(flags):
 
 class Layer(object):
     def __init__(self, buf):
-        self.remaining_bytes = self.parse(buf)
-        self.process_next_layer()
+        remaining_bytes = self.parse(buf)
+        self.process_next_layer(remaining_bytes)
 
     def parse(self, buf):
         raise NotImplementedError()
@@ -46,7 +46,11 @@ class Layer(object):
 #########################
 
 
-class DNS(object):
+class ApplicationLayer(Layer):
+    pass
+
+
+class DNS(ApplicationLayer):
     dns_header_struct = BitStruct(
         'id' / BitsInteger(16),
         'qr' / BitsInteger(1),
@@ -57,7 +61,7 @@ class DNS(object):
             RD = 0x1 << 1,
             RA = 0x1 << 0,
         ),
-        'z' / BitsInteger(3),   # reserved
+        'z' / BitsInteger(3),  # reserved
         'rcode' / BitsInteger(4),
         'qd_count' / BitsInteger(16),
         'an_count' / BitsInteger(16),
@@ -65,35 +69,79 @@ class DNS(object):
         'ar_count' / BitsInteger(16)
     )
 
-    segment_struct = (
-        'len' / BitsInteger(8),
-        'segment' / PascalString(this._.len, 'ascii')
+    segment_struct = BitStruct(
+        Padding(2),
+        'len' / BitsInteger(6),
+        'segment' / PascalString(this.len, 'ascii')
     )
 
-    # dns_question_struct = BitStruct(
-    #     'qname' / RepeatUntil(lambda x, lst, ctx: x == 0, segment_struct),
-    #     'qtype' / BitsInteger(16),
-    #     'qclas' / BitsInteger(16)
-    # )
+    dns_question_struct = BitStruct(
+        'qname' / RepeatUntil(lambda x, lst, ctx: x.len == 0, segment_struct),
+        'qtype' / BitsInteger(16),
+        'qclass' / BitsInteger(16)
+    )
 
-    # dns_question_struct = BitStruct(
-    #     'name' / RepeatUntil(lambda x, lst, ctx: x == 0, segment_struct),
-    #     'type' / BitsInteger(16),
-    #     'class' / BitsInteger(16),
-    #     'ttl' / BitsInteger(32),
-    #     'rdlength' / BitsInteger(16),
-    #     'rddata', Bytes(this._.rdlength)
-    # )
+    resource_record_struct = BitStruct(
+        'name' / RepeatUntil(lambda x, lst, ctx: x.len == 0, segment_struct),
+        'type' / BitsInteger(16),
+        'class' / BitsInteger(16),
+        'ttl' / BitsInteger(32),
+        'rdlength' / BitsInteger(16),
+        'rddata'/ BitsInteger(lambda this: this.rdlength)
+    )
 
-    def __init__(self, buf):
-        pass
+    dns_struct = BitStruct(
+        'header' / dns_header_struct,
+        'question' / If(this.header.qd_count > 0, dns_question_struct),
+        'answer'  / If(this.header.an_count > 0, resource_record_struct),
+        'authority' / If(this.header.ns_count > 0, resource_record_struct),
+        'additional' / If(this.header.ar_count > 0, resource_record_struct)
+    )
+
+    def parse(self, buf):
+        dns = DNS.dns_struct.parse(buf)
+
+        self.id       = dns.header.id
+        self.qr       = dns.header.qr
+        self.opcode   = dns.header.flags
+        self.z        = dns.header.z
+        self.rcode    = dns.header.rcode
+        self.qd_count = dns.header.qd_count
+        self.an_count = dns.header.an_count
+        self.ns_count = dns.header.ns_count
+        self.ar_count = dns.header.ar_count
+
+        self.question   = dns.question
+        self.answer     = dns.answer
+        self.authority  = dns.authority
+        self.additional = dns.additional
+
+    def process_next_layer(self, remaining_bytes):
+        return
 
     def __str__(self):
-        pass
+        args = {
+            'id':       self.id,
+            'qr':       self.qr,
+            'opcode':   self.opcode,
+            'z':        self.z,
+            'rcode':    self.rcode,
+            'qd_count': self.qd_count,
+            'an_count': self.an_count,
+            'ns_count': self.ns_count,
+            'ar_count': self.ar_count,
 
+            # not sure how this will print yet..
+            'question':     self.question,
+            'answer':       self.answer,
+            'authority':    self.authority,
+            'additional':   self.additional
+        }
+
+        return pretty_print('DNS', args)
 
 ApplicationLayerTypes = {
-
+    53: DNS,
 }
 
 
@@ -103,13 +151,13 @@ ApplicationLayerTypes = {
 
 
 class TransportLayer(Layer):
-    def process_next_layer(self):
+    def process_next_layer(self, remaining_bytes):
         self.application_layer = None
         if ApplicationLayerTypes.get(self.dest_port):
-            self.application_layer = ApplicationLayerTypes[self.dest_port](next_data)
+            self.application_layer = ApplicationLayerTypes[self.dest_port](remaining_bytes)
 
         elif ApplicationLayerTypes.get(self.source_port):
-            self.application_layer = ApplicationLayerTypes[self.source_port](next_data)
+            self.application_layer = ApplicationLayerTypes[self.source_port](remaining_bytes)
 
 
 class TCP(TransportLayer):
@@ -258,10 +306,10 @@ class IPv4(NetworkLayer):
 
         return buf[(ipv4.IHL*4):]
 
-    def process_next_layer(self):
+    def process_next_layer(self, remaining_bytes):
         self.transport_layer = None
         if TransportLayerTypes.get(self.protocol):
-            self.transport_layer = TransportLayerTypes[self.protocol](self.remaining_bytes)
+            self.transport_layer = TransportLayerTypes[self.protocol](remaining_bytes)
 
     def __str__(self):
         if self.transport_layer:
@@ -335,10 +383,10 @@ class Ethernet(DataLinkLayer):
 
         return buf[14:]
 
-    def process_next_layer(self):
+    def process_next_layer(self, remaining_bytes):
         self.network_layer = None
         if NetworkLayerTypes.get(self.type):
-            self.network_layer = NetworkLayerTypes[self.type](self.remaining_bytes)
+            self.network_layer = NetworkLayerTypes[self.type](remaining_bytes)
 
     def __str__(self):
         if self.network_layer:
