@@ -74,7 +74,7 @@ class DNS(object):
         'class' / BitsInteger(16),
         'ttl' / BitsInteger(32),
         'rdlength' / BitsInteger(16),
-        'rddata', Bytes(this.rdlength)
+        'rddata' /  Bytes(this.rdlength)
     )
 
     dns_struct = Struct(
