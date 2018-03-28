@@ -70,34 +70,31 @@ class DNS(ApplicationLayer):
     )
 
     segment_struct = BitStruct(
-        Padding(2),
-        'len' / BitsInteger(6),
-        'segment' / PascalString(this.len, 'ascii')
+        'pad' /  BitsInteger(2),       # 11 = pointer 00 = segment
+        'name' / IfThenElse(this.pad == 3, BitsInteger(14), PascalString(BitsInteger(6), "ascii"))
     )
 
     dns_question_struct = BitStruct(
-        # 'qname' / RepeatUntil(lambda x, lst, ctx: x.len == 0, segment_struct),
         'qname' / RepeatUntil(len_(obj_) == 0, PascalString(Byte, "ascii")),
         'qtype' / BitsInteger(16),
         'qclass' / BitsInteger(16)
     )
 
     resource_record_struct = BitStruct(
-        # 'name' / RepeatUntil(lambda x, lst, ctx: x.len == 0, segment_struct),
-        'name'  / RepeatUntil(len_(obj_) == 0, PascalString(Byte, "ascii")),
+        'name'  / RepeatUntil(obj_.pad == 3 | len_(obj_.name) == 0, segment_struct),
         'type' / BitsInteger(16),
         'class' / BitsInteger(16),
         'ttl' / BitsInteger(32),
         'rdlength' / BitsInteger(16),
-        'rddata' / Bytes(this.rdlength)
+        'rddata' / Bytes(this.rdlength)    # should this be something in bits?
     )
 
     dns_struct = BitStruct(
         'header' / dns_header_struct,
-        'question' / If(this.header.qd_count > 0, dns_question_struct),
-        'answer'  / If(this.header.an_count > 0, resource_record_struct),
-        'authority' / If(this.header.ns_count > 0, resource_record_struct),
-        'additional' / If(this.header.ar_count > 0, resource_record_struct)
+        'question' / Array(this.header.qd_count, dns_question_struct),
+        'answer'  / Array(this.header.an_count, resource_record_struct),
+        'authority' / Array(this.header.ns_count, resource_record_struct),
+        'additional' / Array(this.header.ar_count, resource_record_struct)
     )
 
     def parse(self, buf):
@@ -239,7 +236,7 @@ class UDP(TransportLayer):
         self.length      = udp.length
         self.checksum    = udp.checksum
 
-        return buf[64:]
+        return buf[8:]
 
     def __str__(self):
         args = {
