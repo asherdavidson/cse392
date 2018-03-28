@@ -63,57 +63,61 @@ class DNS(ApplicationLayer):
         ),
         'z' / BitsInteger(3),  # reserved
         'rcode' / BitsInteger(4),
-        'qd_count' / BitsInteger(16),
-        'an_count' / BitsInteger(16),
-        'ns_count' / BitsInteger(16),
-        'ar_count' / BitsInteger(16)
     )
 
-    segment_struct = BitStruct(
-        'pad' /  BitsInteger(2),       # 11 = pointer 00 = segment
-        'name' / IfThenElse(this.pad == 3, BitsInteger(14), PascalString(BitsInteger(6), "ascii"))
+    dns_header_counts = Struct(
+        'qd_count' / Short,
+        'an_count' / Short,
+        'ns_count' / Short,
+        'ar_count' / Short
     )
 
-    dns_question_struct = BitStruct(
+    segment_struct = Struct(
+        'pad' /  Peek(Byte),       # 11 = pointer 00 = segment
+        'name' / IfThenElse(this.pad > 63, Short, PascalString(Byte, "ascii"))
+    )
+
+    dns_question_struct = Struct(
         'qname' / RepeatUntil(len_(obj_) == 0, PascalString(Byte, "ascii")),
-        'qtype' / BitsInteger(16),
-        'qclass' / BitsInteger(16)
+        'qtype' / Short,
+        'qclass' / Short
     )
 
-    resource_record_struct = BitStruct(
-        'name'  / RepeatUntil(obj_.pad == 3 | len_(obj_.name) == 0, segment_struct),
-        'type' / BitsInteger(16),
-        'class' / BitsInteger(16),
-        'ttl' / BitsInteger(32),
-        'rdlength' / BitsInteger(16),
-        'rddata' / Bytes(this.rdlength)    # should this be something in bits?
+    resource_record_struct = Struct(
+        'name'  / RepeatUntil(obj_.pad > 63 or len_(obj_.name) == 0, segment_struct),
+        'type' / Short,
+        'class' / Short,
+        'ttl' / Int,
+        'rdlength' / Short,
+        'rddata' / Bytes(this.rdlength)  # should this be something in bits?
     )
 
-    dns_struct = BitStruct(
-        'header' / dns_header_struct,
-        'question' / Array(this.header.qd_count, dns_question_struct),
-        'answer'  / Array(this.header.an_count, resource_record_struct),
-        'authority' / Array(this.header.ns_count, resource_record_struct),
-        'additional' / Array(this.header.ar_count, resource_record_struct)
+    dns_struct = Struct(
+        'counts' / dns_header_counts,
+        'question' / Array(this.counts.qd_count, dns_question_struct),
+        'answer'  / Array(this.counts.an_count, resource_record_struct)
+        # 'authority' / Array(this.counts.ns_count, resource_record_struct),
+        # 'additional' / Array(this.counts.ar_count, resource_record_struct)
     )
 
     def parse(self, buf):
-        dns = DNS.dns_struct.parse(buf)
+        dns_header = DNS.dns_header_struct.parse(buf)
+        dns = DNS.dns_struct.parse(buf[4:])
 
-        self.id       = dns.header.id
-        self.qr       = dns.header.qr
-        self.opcode   = dns.header.flags
-        self.z        = dns.header.z
-        self.rcode    = dns.header.rcode
-        self.qd_count = dns.header.qd_count
-        self.an_count = dns.header.an_count
-        self.ns_count = dns.header.ns_count
-        self.ar_count = dns.header.ar_count
+        self.id       = dns_header.id
+        self.qr       = dns_header.qr
+        self.opcode   = dns_header.flags
+        self.z        = dns_header.z
+        self.rcode    = dns_header.rcode
+        self.qd_count = dns.counts.qd_count
+        self.an_count = dns.counts.an_count
+        self.ns_count = dns.counts.ns_count
+        self.ar_count = dns.counts.ar_count
 
         self.question   = dns.question
         self.answer     = dns.answer
-        self.authority  = dns.authority
-        self.additional = dns.additional
+        # self.authority  = dns.authority
+        # self.additional = dns.additional
 
     def process_next_layer(self, remaining_bytes):
         return
