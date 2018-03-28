@@ -76,18 +76,20 @@ class DNS(ApplicationLayer):
     )
 
     dns_question_struct = BitStruct(
-        'qname' / RepeatUntil(lambda x, lst, ctx: x.len == 0, segment_struct),
+        # 'qname' / RepeatUntil(lambda x, lst, ctx: x.len == 0, segment_struct),
+        'qname' / RepeatUntil(len_(obj_) == 0, PascalString(Byte, "ascii")),
         'qtype' / BitsInteger(16),
         'qclass' / BitsInteger(16)
     )
 
     resource_record_struct = BitStruct(
-        'name' / RepeatUntil(lambda x, lst, ctx: x.len == 0, segment_struct),
+        # 'name' / RepeatUntil(lambda x, lst, ctx: x.len == 0, segment_struct),
+        'name'  / RepeatUntil(len_(obj_) == 0, PascalString(Byte, "ascii")),
         'type' / BitsInteger(16),
         'class' / BitsInteger(16),
         'ttl' / BitsInteger(32),
         'rdlength' / BitsInteger(16),
-        'rddata'/ BitsInteger(lambda this: this.rdlength)
+        'rddata', Bytes(this.rdlength)
     )
 
     dns_struct = BitStruct(
@@ -140,8 +142,9 @@ class DNS(ApplicationLayer):
 
         return pretty_print('DNS', args)
 
+# by port number
 ApplicationLayerTypes = {
-    53: DNS,
+   53 : DNS   # Most DNS is over UDP
 }
 
 
