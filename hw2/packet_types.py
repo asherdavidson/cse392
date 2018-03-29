@@ -31,6 +31,7 @@ def format_flags(flags):
 
 class Packet(object):
     def __init__(self, buf):
+        self.buf = buf
         self.data_link_layer = Ethernet(buf)
         self.network_layer = self.data_link_layer.network_layer
 
