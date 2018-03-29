@@ -75,7 +75,7 @@ if __name__ == '__main__':
                                                            time specified ^C must be sent to close program')
     parser.add_argument('-x', '--hexdump', action='store_true', help='Print hexdump to stdout')
     # TODO: ONE_MORE_OF_YOUR_CHOOSING
-    parser.add_argument('-f', '--filter', choices=['UDP', 'Ethernet', 'DNS', 'IP', 'TCP', 'ONE_MORE_OF_YOUR_CHOOSING'], help='Filter for one specified protocol')
+    parser.add_argument('-f', '--filter', choices=['UDP', 'Ethernet', 'DNS', 'IP', 'TCP', 'ARP'], help='Filter for one specified protocol')
     parser.add_argument('interface', help='interface to listen for traffic on')
 
     args = parser.parse_args()

@@ -39,6 +39,7 @@ class Packet(object):
             self.transport_layer = self.network_layer.transport_layer
         else:
             self.transport_layer = None
+            return
 
         if self.transport_layer.application_layer:
             self.application_layer = self.transport_layer.application_layer
@@ -62,7 +63,7 @@ class Packet(object):
         if filter == self.data_link_layer.__class__.__name__:
             return self.data_link_layer
 
-        if filter == 'IP' and self.network_layer.__class__.__name__ in ['IPv4', 'IPv6']:
+        if filter == self.network_layer.__class__.__name__:
             return self.network_layer
 
         if filter == self.transport_layer.__class__.__name__:
@@ -389,9 +390,56 @@ class IPv4(NetworkLayer):
         return pretty_print('IPv4', args)
 
 
+class ARP(NetworkLayer):
+    arp_struct = BitStruct(
+        'hw_addr_space' / BitsInteger(16),
+        'proto_addr_space' / BitsInteger(16),
+        'hln' / Octet,
+        'pln' / Octet,
+        'op' / BitsInteger(16),
+        'sha' / BitsInteger(this.hln * 8),
+        'spa' / BitsInteger(this.pln * 8),
+        'tha' / BitsInteger(this.hln * 8),
+        'tpa' / BitsInteger(this.pln * 8)
+    )
+
+    def process_next_layer(self, remaining_bytes):
+        self.transport_layer = None
+
+    def parse(self, buf):
+        arp = ARP.arp_struct.parse(buf)
+
+        self.hw_addr_space = arp.hw_addr_space
+        self.proto_addr_space = arp.proto_addr_space
+        self.hln = arp.hln
+        self.pln = arp.pln
+        self.op = arp.op
+        self.sha = arp.sha
+        self.spa = arp.spa
+        self.tha = arp.tha
+        self.tpa = arp.tpa
+
+        # should be the end of buf
+    
+    def __str__(self):
+        args = {
+            'hw addr space':        self.hw_addr_space,
+            'proto addr space':     self.proto_addr_space,
+            'hln':                  self.hln,
+            'pln':                  self.pln,
+            'opcode':               self.op,
+            'sha':                  self.sha,
+            'spa':                  self.spa,
+            'tha':                  self.tha,
+            'tpa':                  self.tpa
+        }
+
+        return pretty_print('ARP', args)
+
+
 NetworkLayerTypes = {
     0x0800: IPv4,
-    # 0x0806: ARP,
+    0x0806: ARP,
     # 0x86DD: IPv6
 }
 
