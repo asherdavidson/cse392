@@ -29,6 +29,50 @@ def format_flags(flags):
     return f'{{{values}}}'
 
 
+class Packet(object):
+    def __init__(self, buf):
+        self.data_link_layer = Ethernet(buf)
+        self.network_layer = self.data_link_layer.network_layer
+
+        if self.network_layer.transport_layer:
+            self.transport_layer = self.network_layer.transport_layer
+        else:
+            self.transport_layer = None
+
+        if self.transport_layer.application_layer:
+            self.application_layer = self.transport_layer.application_layer
+        else:
+            self.application_layer = None
+
+    def __str__(self):
+        if self.application_layer:
+            return str(self.application_layer)
+
+        if self.transport_layer:
+            return str(self.transport_layer)
+
+        if self.network_layer:
+            return str(self.network_layer)
+
+        return str(self.data_link_layer)
+
+    def get_matching_layer(self, filter):
+        """Returns None if no layer matches"""
+        if filter == self.data_link_layer.__class__.__name__:
+            return self.data_link_layer
+
+        if filter == 'IP' and self.network_layer.__class__.__name__ in ['IPv4', 'IPv6']:
+            return self.network_layer
+
+        if filter == self.transport_layer.__class__.__name__:
+            return self.transport_layer
+
+        if filter == self.application_layer.__class__.__name__:
+            return self.application_layer
+
+        return None
+
+
 class Layer(object):
     def __init__(self, buf):
         remaining_bytes = self.parse(buf)
@@ -137,8 +181,8 @@ class DNS(ApplicationLayer):
             # not sure how this will print yet..
             'question':     self.question,
             'answer':       self.answer,
-            'authority':    self.authority,
-            'additional':   self.additional
+            # 'authority':    self.authority,
+            # 'additional':   self.additional,
         }
 
         return pretty_print('DNS', args)
@@ -316,9 +360,6 @@ class IPv4(NetworkLayer):
             self.transport_layer = TransportLayerTypes[self.protocol](remaining_bytes)
 
     def __str__(self):
-        if self.transport_layer:
-            return str(self.transport_layer)
-
         if self.protocol >= 143 and self.protocol <= 252:
             protocol = 'UNASSIGNED'
         elif self.protocol >= 253 and self.protocol <= 254:
@@ -393,9 +434,6 @@ class Ethernet(DataLinkLayer):
             self.network_layer = NetworkLayerTypes[self.type](remaining_bytes)
 
     def __str__(self):
-        if self.network_layer:
-            return str(self.network_layer)
-
         args = {
             'destination': dump(Ethernet.struct.destination.build(self.destination)),
             'source':      dump(Ethernet.struct.source.build(self.source)),

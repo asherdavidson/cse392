@@ -13,10 +13,6 @@ def sniff(interface, timeout, dumphex, filter):
     s = socket.socket(socket.AF_PACKET, socket.SOCK_RAW, socket.ntohs(ETH_P_ALL))
     s.bind((interface, 0))
 
-    # s.setsockopt(socket.SOL_SOCKET, socket.SO_BINDTODEVICE, interface)
-    # fcntl.fcntl(s, socket.SIO_RCVALL, socket.RCVALL_ON)
-    # s.ioctl(socket.SIO_RCVALL, socket.RCVALL_ON)
-
     while True:
         buf = s.recv(4096)
 
@@ -26,8 +22,19 @@ def sniff(interface, timeout, dumphex, filter):
             # print(hexdump.dump(buf))
 
         else:
-            ethernet_header = Ethernet(buf)
-            print(ethernet_header)
+            try:
+                packet = Packet(buf)
+
+                if filter:
+                    if packet.get_matching_layer(filter):
+                        print(packet.get_matching_layer(filter))
+                else:
+                    print(packet)
+
+            except:
+                print('Error parsing packet:')
+                hexdump(buf)
+                print()
 
     s.close()
 
