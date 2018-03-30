@@ -1,3 +1,5 @@
+from time import time
+
 from construct import *
 from hexdump import hexdump, dump
 
@@ -32,6 +34,8 @@ def format_flags(flags):
 class Packet(object):
     def __init__(self, buf):
         self.buf = buf
+        self.timestamp = time()
+
         self.data_link_layer = Ethernet(buf)
         self.network_layer = self.data_link_layer.network_layer
 
@@ -57,6 +61,14 @@ class Packet(object):
             return str(self.network_layer)
 
         return str(self.data_link_layer)
+
+    def enhanced_packet_data(self):
+        return {
+            'timestamp': int(self.timestamp * 10 ** 6),
+            'captured_packet_length': len(self.buf),
+            'original_packet_length': len(self.buf),
+            'packet_data': self.buf,
+        }
 
     def get_matching_layer(self, filter):
         """Returns None if no layer matches"""
