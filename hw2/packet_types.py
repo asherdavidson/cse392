@@ -141,20 +141,20 @@ class DNS(ApplicationLayer):
     )
 
     resource_record_struct = Struct(
-        'name'  / RepeatUntil(obj_.pad > 63 or len_(obj_.name) == 0, segment_struct),
+        'name'  / RepeatUntil(lambda obj, lst, ctx: obj_.pad > 63 or obj_.pad == 0, segment_struct),
         'type' / Short,
         'class' / Short,
         'ttl' / Int,
         'rdlength' / Short,
-        'rddata' / Bytes(this.rdlength)  # should this be something in bits?
+        'rddata' / Bytes(this.rdlength)
     )
 
     dns_struct = Struct(
         'counts' / dns_header_counts,
         'question' / Array(this.counts.qd_count, dns_question_struct),
-        'answer'  / Array(this.counts.an_count, resource_record_struct)
-        # 'authority' / Array(this.counts.ns_count, resource_record_struct),
-        # 'additional' / Array(this.counts.ar_count, resource_record_struct)
+        'answer'  / Array(this.counts.an_count, resource_record_struct),
+        'authority' / Array(this.counts.ns_count, resource_record_struct),
+        'additional' / Array(this.counts.ar_count, resource_record_struct)
     )
 
     def parse(self, buf):
@@ -173,8 +173,8 @@ class DNS(ApplicationLayer):
 
         self.question   = dns.question
         self.answer     = dns.answer
-        # self.authority  = dns.authority
-        # self.additional = dns.additional
+        self.authority  = dns.authority
+        self.additional = dns.additional
 
     def process_next_layer(self, remaining_bytes):
         return
@@ -194,8 +194,8 @@ class DNS(ApplicationLayer):
             # not sure how this will print yet..
             'question':     self.question,
             'answer':       self.answer,
-            # 'authority':    self.authority,
-            # 'additional':   self.additional,
+            'authority':    self.authority,
+            'additional':   self.additional
         }
 
         return pretty_print('DNS', args)
