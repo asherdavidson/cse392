@@ -81,10 +81,12 @@ def process_packet(buf, filter, dumphex):
 
         return packet
 
-    except Exception:
+    except Exception as e:
         print('Error parsing packet:')
         hexdump(buf)
         print()
+
+        raise e
 
         return None
 

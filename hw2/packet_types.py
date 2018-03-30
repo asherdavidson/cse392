@@ -38,6 +38,8 @@ class Packet(object):
 
         self.data_link_layer = Ethernet(buf)
         self.network_layer = self.data_link_layer.network_layer
+        self.transport_layer = None
+        self.application_layer = None
 
         if self.network_layer.transport_layer:
             self.transport_layer = self.network_layer.transport_layer
@@ -421,29 +423,27 @@ class ARP(NetworkLayer):
     def parse(self, buf):
         arp = ARP.arp_struct.parse(buf)
 
-        self.hw_addr_space = arp.hw_addr_space
+        self.hw_addr_space    = arp.hw_addr_space
         self.proto_addr_space = arp.proto_addr_space
-        self.hln = arp.hln
-        self.pln = arp.pln
-        self.op = arp.op
-        self.sha = arp.sha
-        self.spa = arp.spa
-        self.tha = arp.tha
-        self.tpa = arp.tpa
+        self.hln              = arp.hln
+        self.pln              = arp.pln
+        self.op               = arp.op
+        self.sha              = arp.sha
+        self.spa              = arp.spa
+        self.tha              = arp.tha
+        self.tpa              = arp.tpa
 
-        # should be the end of buf
-    
     def __str__(self):
         args = {
-            'hw addr space':        self.hw_addr_space,
-            'proto addr space':     self.proto_addr_space,
-            'hln':                  self.hln,
-            'pln':                  self.pln,
-            'opcode':               self.op,
-            'sha':                  self.sha,
-            'spa':                  self.spa,
-            'tha':                  self.tha,
-            'tpa':                  self.tpa
+            'hw addr space':    self.hw_addr_space,
+            'proto addr space': self.proto_addr_space,
+            'hln':              self.hln,
+            'pln':              self.pln,
+            'opcode':           self.op,
+            'sha':              self.sha,
+            'spa':              self.spa,
+            'tha':              self.tha,
+            'tpa':              self.tpa
         }
 
         return pretty_print('ARP', args)
