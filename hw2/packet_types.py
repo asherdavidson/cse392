@@ -47,11 +47,11 @@ class Packet(object):
             return
         self.network_layer = self.data_link_layer.network_layer
 
-        if not self.network_layer.transport_layer:
+        if not self.network_layer:
             return
         self.transport_layer = self.network_layer.transport_layer
 
-        if not self.transport_layer.application_layer:
+        if not self.transport_layer:
             return
         self.application_layer = self.transport_layer.application_layer
 
