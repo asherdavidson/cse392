@@ -164,7 +164,8 @@ class DNS(ApplicationLayer):
 
         self.id       = dns_header.id
         self.qr       = dns_header.qr
-        self.opcode   = dns_header.flags
+        self.opcode   = dns_header.opcode
+        self.flags    = dns_header.flags
         self.z        = dns_header.z
         self.rcode    = dns_header.rcode
         self.qd_count = dns.counts.qd_count
@@ -180,23 +181,66 @@ class DNS(ApplicationLayer):
     def process_next_layer(self, remaining_bytes):
         return
 
+    def format_question_name(self, qname):
+        if len(qname) == 0 or len(qname[0]) == 0:
+            return 'ROOT'
+
+        res = qname[0]
+        for part in qname[1:]:
+            if len(part) == 0:
+                break
+            res += '.' + part
+
+        return res
+
+
+    def format_questions(self, questions):
+        return [{
+            'qname':  self.format_question_name(question.qname),
+            'qtype':  constants.dns_type_values[question.qtype],
+            'qclass': constants.dns_class_values[question.qclass]
+        } for question in questions]
+
+
+    def format_rr_name(self, names):
+        if len(names) == 0:
+            return 'ROOT'
+
+        # if last element is pointer return pointer as string
+        if names[-1].pad > 63:
+            return hex(names[-1].name)
+
+        return self.format_question_name(list(map(lambda x: x.name, names)))
+
+
+    def format_resource_records(self, records):
+        return [{
+            'name': self.format_rr_name(record.name),
+            'type': constants.dns_type_values[record.type],
+            'class':constants.dns_class_values[record.get('class')],
+            'tll': record.ttl,
+            'rdlength': record.rdlength,
+            'rdata': record.rddata
+        } for record in records]
+
+
     def __str__(self):
         args = {
-            'id':       self.id,
-            'qr':       self.qr,
-            'opcode':   self.opcode,
-            'z':        self.z,
-            'rcode':    self.rcode,
-            'qd_count': self.qd_count,
-            'an_count': self.an_count,
-            'ns_count': self.ns_count,
-            'ar_count': self.ar_count,
+            'id':               hex(self.id),
+            'qr':               'query' if self.qr == 0 else 'response',
+            'opcode':           self.opcode,
+            'flags':            format_flags(self.flags),
+            'z':                'reserved',
+            'rcode':            constants.dns_rcodes[self.rcode],
+            'Questions':        self.qd_count,
+            'Answers RRs':      self.an_count,
+            'Authority RRs':    self.ns_count,
+            'Additional RRs':   self.ar_count,
 
-            # not sure how this will print yet..
-            'question':     self.question,
-            'answer':       self.answer,
-            'authority':    self.authority,
-            'additional':   self.additional
+            'Queries':          self.format_questions(self.question),
+            'Answers':          self.format_resource_records(self.answer),
+            'Authoritative_NSs':self.format_resource_records(self.authority),
+            'Additional':       self.format_resource_records(self.additional)
         }
 
         return pretty_print('DNS', args)

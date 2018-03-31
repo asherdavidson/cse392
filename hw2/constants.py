@@ -154,3 +154,47 @@ IPv4_protocols = {
     142: 'ROHC',
     255: 'Reserved for extra',
 }
+
+dns_type_values = {
+    1:  'A',
+    2:  'NS',
+    3:  'MD',
+    4:  'MF',
+    5:  'CNAME',
+    6:  'SOA',
+    7:  'MB',
+    8:  'MG',
+    9:  'MR',
+    10: 'NULL',
+    11: 'WKS',
+    12: 'PTR',
+    13: 'HINFO',
+    14: 'MINFO',
+    15: 'MX',
+    16: 'TXT',
+    28: 'AAAA (IPv6)',
+    41: 'OPT',
+    # QTYPE additional values
+    252: 'AXFR',
+    253: 'MAILB',
+    254: 'MAILA',
+    255: '*'
+}
+
+dns_class_values = {
+    1: 'IN',
+    2: 'CS',
+    3: 'CH',
+    4: 'HS',
+    # QCLASS additional values
+    255: '*'
+}
+
+dns_rcodes = {
+    0: 'No Error',
+    1: 'Format Error',
+    2: 'Server Failure',
+    3: 'Name Error',
+    4: 'Not implemented',
+    5: 'Refused'
+}
