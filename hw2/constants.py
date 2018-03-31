@@ -7,6 +7,15 @@ IPv4Address = Sequence(
         BitsInteger(8)
 )
 
+MacAddress = Sequence(
+        BitsInteger(8),
+        BitsInteger(8),
+        BitsInteger(8),
+        BitsInteger(8),
+        BitsInteger(8),
+        BitsInteger(8)
+)
+
 IPv4_protocols = {
     0: 'HOPOPT',
     1: 'ICMP',
@@ -197,4 +206,96 @@ dns_rcodes = {
     3: 'Name Error',
     4: 'Not implemented',
     5: 'Refused'
+}
+
+arp_opcodes = {
+    0:	'Reserved',
+    1:	'REQUEST',
+    2:	'REPLY',
+    3:	'request Reverse',
+    4:	'reply Reverse',
+    5:	'DRARP-Request',
+    6:	'DRARP-Reply',
+    7:	'DRARP-Error',
+    8:	'InARP-Request',
+    9:	'InARP-Reply',
+    10:	'ARP-NAK',
+    11:	'MARS-Request',
+    12:	'MARS-Multi',
+    13:	'MARS-MServ',
+    14:	'MARS-Join',
+    15:	'MARS-Leave',
+    16:	'MARS-NAK',
+    17:	'MARS-Unserv',	
+    18:	'MARS-SJoin',
+    19:	'MARS-SLeave',
+    20:	'MARS-Grouplist-Request',
+    21:	'MARS-Grouplist-Reply',
+    22:	'MARS-Redirect-Map',
+    23:	'MAPOS-UNARP',
+    24:	'OP_EXP1',
+    25:	'OP_EXP2',
+    # 26'-65534	Unassigned
+    65535:	'Reserved'
+}
+
+arp_hw_types = {
+    0:	'Reserved',
+    1:	'Ethernet',
+    2:	'Experimental Ethernet',
+    3:	'Amateur Radio AX.25',
+    4:	'Proteon ProNET Token Ring',
+    5:	'Chaos',
+    6:	'IEEE 802 Networks',
+    7:	'ARCNET',
+    8:	'Hyperchannel',
+    9:	'Lanstar',
+    10:	'Autonet Short Address',
+    11:	'LocalTalk',
+    12:	'LocalNet (IBM PCNet or SYTEK LocalNET)',
+    13:	'Ultra link',
+    14:	'SMDS',
+    15:	'Frame Relay',
+    16:	'Asynchronous Transmission Mode (ATM)',
+    17:	'HDLC',
+    18:	'Fibre Channel',
+    19:	'Asynchronous Transmission Mode (ATM)',
+    20:	'Serial Line',
+    21:	'Asynchronous Transmission Mode (ATM)',
+    22:	'MIL-STD-188-220',
+    23:	'Metricom',
+    24:	'IEEE 1394.1995',
+    25:	'MAPOS',
+    26:	'Twinaxial',
+    27:	'EUI-64',
+    28:	'HIPARP',
+    29:	'IP and ARP over ISO 7816-3',
+    30:	'ARPSec',
+    31:	'IPsec tunnel',
+    32:	'InfiniBand (TM)',
+    33:	'TIA-102 Project 25 Common Air Interface (CAI)',
+    34:	'Wiegand Interface',
+    35:	'Pure IP',
+    36:	'HW_EXP1',
+    37:	'HFI',
+    # 38-255	Unassigned	
+    256:'HW_EXP2',
+    257:'AEthernet',
+    # 258-65534	Unassigned	
+    65535:'Reserved'
+}
+
+arp_protocol_types = {
+    0x0800:  'IPv4',
+    0x0806:  'ARP',
+    0x0808:  'Frame Relay ARP',
+    0x880B:  'Point-to-Point Tunneling Protocol (PPTP)',
+    0x880C:  'General Switch Management Protocol (GSMP)',
+    0x8035:  'Reverse Address Resolution Protocol (RARP)',
+    0x86DD:  'IPv6',
+    0x8847:  'MPLS',
+    0x8848:  'MPLS with upstream-assigned label',
+    0x8861:  'Multicast Channel Allocation Protocol (MCAP)',
+    0x8863:  'PPP over Ethernet (PPPoE) Discovery Stage',
+    0x8864:  'PPP over Ethernet (PPPoE) Session Stage',
 }

@@ -21,6 +21,8 @@ def pretty_print(classname, args):
 def format_ipv4_address(addr):
     return f'{addr[0]}.{addr[1]}.{addr[2]}.{addr[3]}'
 
+def format_mac_address(addr):
+    return f'{addr[0]:x}:{addr[1]:x}:{addr[2]:x}:{addr[3]:x}:{addr[4]:x}:{addr[5]:x}'
 
 def format_flags(flags):
     temp = []
@@ -463,10 +465,10 @@ class ARP(NetworkLayer):
         'hln' / Octet,
         'pln' / Octet,
         'op' / BitsInteger(16),
-        'sha' / BitsInteger(this.hln * 8),
-        'spa' / BitsInteger(this.pln * 8),
-        'tha' / BitsInteger(this.hln * 8),
-        'tpa' / BitsInteger(this.pln * 8)
+        'sha' / IfThenElse(this.hln == 6, constants.MacAddress, BitsInteger(this.hln * 8)),
+        'spa' / IfThenElse(this.pln == 4, constants.IPv4Address, BitsInteger(this.pln * 8)),
+        'tha' / IfThenElse(this.hln == 6, constants.MacAddress, BitsInteger(this.hln * 8)),
+        'tpa' / IfThenElse(this.pln == 4, constants.IPv4Address, BitsInteger(this.pln * 8))
     )
 
     def process_next_layer(self, remaining_bytes):
@@ -485,17 +487,30 @@ class ARP(NetworkLayer):
         self.tha              = arp.tha
         self.tpa              = arp.tpa
 
+    def get_opcode(self, opcode_num):
+        if opcode_num > 25 and opcode_num < 65535:
+            return f'Unassigned'
+        return constants.arp_opcodes.get(opcode_num, f'Unknown Opcode')
+
+    def get_hw_type(self, hw_num):
+        if (hw_num > 37 and hw_num < 256) or (hw_num > 257 and hw_num < 65535):
+            return f'Unassigned'
+        return constants.arp_hw_types.get(hw_num, f'Unknown HW Type')
+
+    def get_protocol_type(self, pnum):
+        return constants.arp_protocol_types.get(pnum, f'Unknown Protocol')
+
     def __str__(self):
         args = {
-            'hw addr space':    self.hw_addr_space,
-            'proto addr space': self.proto_addr_space,
+            'hw addr space':    self.get_hw_type(self.hw_addr_space),
+            'proto addr space': self.get_protocol_type(self.proto_addr_space),
             'hln':              self.hln,
             'pln':              self.pln,
-            'opcode':           self.op,
-            'sha':              self.sha,
-            'spa':              self.spa,
-            'tha':              self.tha,
-            'tpa':              self.tpa
+            'opcode':           self.get_opcode(self.op),
+            'sha':              self.sha if self.hln != 6 else format_mac_address(self.sha),
+            'spa':              self.spa if self.pln != 4 else format_ipv4_address(self.spa),
+            'tha':              self.tha if self.hln != 6 else format_mac_address(self.tha),
+            'tpa':              self.tpa if self.pln != 4 else format_ipv4_address(self.tpa)
         }
 
         return pretty_print('ARP', args)
