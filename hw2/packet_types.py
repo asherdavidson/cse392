@@ -36,21 +36,24 @@ class Packet(object):
         self.buf = buf
         self.timestamp = time()
 
-        self.data_link_layer = Ethernet(buf)
-        self.network_layer = self.data_link_layer.network_layer
+        self.data_link_layer = None
+        self.network_layer = None
         self.transport_layer = None
         self.application_layer = None
 
-        if self.network_layer.transport_layer:
-            self.transport_layer = self.network_layer.transport_layer
-        else:
-            self.transport_layer = None
-            return
+        self.data_link_layer = Ethernet(buf)
 
-        if self.transport_layer.application_layer:
-            self.application_layer = self.transport_layer.application_layer
-        else:
-            self.application_layer = None
+        if not self.data_link_layer:
+            return
+        self.network_layer = self.data_link_layer.network_layer
+
+        if not self.network_layer.transport_layer:
+            return
+        self.transport_layer = self.network_layer.transport_layer
+
+        if not self.transport_layer.application_layer:
+            return
+        self.application_layer = self.transport_layer.application_layer
 
     def __str__(self):
         if self.application_layer:
