@@ -191,39 +191,25 @@ class DNS(ApplicationLayer):
         for part in qname[1:]:
             if len(part) == 0:
                 break
-            res += '.' + part
+            res += f'.{part}'
 
         return res
 
-
     def get_type_value(self, type_num):
-        if type_num not in constants.dns_type_values:
-            return f'Unknown type {type_num}'
-
-        return constants.dns_type_values[type_num]
-
+        return constants.dns_type_values.get(type_num, f'Unknown type {type_num}')
 
     def get_class_value(self, class_num):
-        if class_num not in constants.dns_class_values:
-            return f'Unknown class {class_num}'
-        
-        return constants.dns_class_values[class_num]
-
+        return constants.dns_class_values.get(class_num, f'Unknown class {class_num}')
 
     def get_rcode(self, rcode_num):
-        if rcode_num not in constants.dns_rcodes:
-            return f'Unknown rcode {rcode_num}' 
-
-        return constants.dns_rcodes[rcode_num]
-
+        return constants.dns_rcodes.get(rcode_num, f'Unknown rcode {rcode_num}')
 
     def format_questions(self, questions):
         return [{
             'qname':  self.format_question_name(question.qname),
             'qtype':  self.get_type_value(question.qtype),
-            'qclass': self.get_class_value(question.qclass)
+            'qclass': self.get_class_value(question.qclass),
         } for question in questions]
-
 
     def format_rr_name(self, names):
         if len(names) == 0:
@@ -233,19 +219,17 @@ class DNS(ApplicationLayer):
         if names[-1].pad > 63:
             return hex(names[-1].name)
 
-        return self.format_question_name(list(map(lambda x: x.name, names)))
-
+        return self.format_question_name([x.name for x in names])
 
     def format_resource_records(self, records):
         return [{
-            'name': self.format_rr_name(record.name),
-            'type': self.get_type_value(record.type),
-            'class':self.get_class_value(record.get('class')),
-            'tll': record.ttl,
+            'name':     self.format_rr_name(record.name),
+            'type':     self.get_type_value(record.type),
+            'class':    self.get_class_value(record.get('class')),
+            'tll':      record.ttl,
             'rdlength': record.rdlength,
-            'rdata': record.rddata
+            'rdata':    record.rddata,
         } for record in records]
-
 
     def __str__(self):
         args = {
