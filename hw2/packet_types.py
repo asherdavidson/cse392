@@ -196,11 +196,32 @@ class DNS(ApplicationLayer):
         return res
 
 
+    def get_type_value(self, type_num):
+        if type_num not in constants.dns_type_values:
+            return f'Unknown type {type_num}'
+
+        return constants.dns_type_values[type_num]
+
+
+    def get_class_value(self, class_num):
+        if class_num not in constants.dns_class_values:
+            return f'Unknown class {class_num}'
+        
+        return constants.dns_class_values[class_num]
+
+
+    def get_rcode(self, rcode_num):
+        if rcode_num not in constants.dns_rcodes:
+            return f'Unknown rcode {rcode_num}' 
+
+        return constants.dns_rcodes[rcode_num]
+
+
     def format_questions(self, questions):
         return [{
             'qname':  self.format_question_name(question.qname),
-            'qtype':  constants.dns_type_values[question.qtype],
-            'qclass': constants.dns_class_values[question.qclass]
+            'qtype':  self.get_type_value(question.qtype),
+            'qclass': self.get_class_value(question.qclass)
         } for question in questions]
 
 
@@ -218,8 +239,8 @@ class DNS(ApplicationLayer):
     def format_resource_records(self, records):
         return [{
             'name': self.format_rr_name(record.name),
-            'type': constants.dns_type_values[record.type],
-            'class':constants.dns_class_values[record.get('class')],
+            'type': self.get_type_value(record.type),
+            'class':self.get_class_value(record.get('class')),
             'tll': record.ttl,
             'rdlength': record.rdlength,
             'rdata': record.rddata
@@ -233,7 +254,7 @@ class DNS(ApplicationLayer):
             'opcode':           self.opcode,
             'flags':            format_flags(self.flags),
             'z':                'reserved',
-            'rcode':            constants.dns_rcodes[self.rcode],
+            'rcode':            self.get_rcode(self.rcode),
             'Questions':        self.qd_count,
             'Answers RRs':      self.an_count,
             'Authority RRs':    self.ns_count,
