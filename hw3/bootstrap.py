@@ -55,7 +55,7 @@ class ConsistentHashList():
             return None
 
         for elem in self.client_list:
-            if id < elem[0]:
+            if hash < elem[0]:
                 return elem[1]
             
         return self.client_list[0][1]
