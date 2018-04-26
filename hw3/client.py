@@ -6,7 +6,7 @@ import sys
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
 # FUSE(client) CODE
-class Defuse():
+class Difuse():
     pass
 
 # Server

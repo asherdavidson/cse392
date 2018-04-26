@@ -85,6 +85,20 @@ class ConsistentHashList():
 
 
 # Ignore consistent hashing for now and implement base code
+class BaseProtocolManager():
+    def __init__(self):
+        # stores file name to ip addr
+        self.file_dict = {}
+        #
+
+    def add_file(self):
+        pass
+
+    def remove_file(self):
+        pass
+
+    
+
 
 class ThreadedBootstrapHandler(socketserver.BaseRequestHandler):
     def handle(self):
@@ -114,4 +128,4 @@ if __name__ == "__main__":
     # server_thread.daemon = True
     server_thread.start()
 
-    print("Bootstrap server started on port: {}".format(port))
+    print("Bootstrap server started on port: {}".format(PORT))
