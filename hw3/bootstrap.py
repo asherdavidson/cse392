@@ -84,6 +84,8 @@ class ConsistentHashList():
         return hash % self.range
 
 
+# Ignore consistent hashing for now and implement base code
+
 class ThreadedBootstrapHandler(socketserver.BaseRequestHandler):
     def handle(self):
         data = bytes(self.request.recv(1024), 'ascii')
@@ -103,14 +105,13 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 if __name__ == "__main__":
     # TODO read host and port from config file/command line
-    HOST = "localhost"
-    PORT = 8000
+    HOST, PORT = "localhost", 8000
 
     server = ThreadedTCPServer((HOST, PORT), ThreadedBootstrapHandler)
-    ip, port = server.server_address
+    # ip, port = server.server_address
 
     server_thread = threading.Thread(target=server.serve_forever)
     # server_thread.daemon = True
     server_thread.start()
 
-    print("Started bootstrap server on port {}".format(port))
+    print("Bootstrap server started on port: {}".format(port))
