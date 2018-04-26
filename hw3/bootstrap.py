@@ -4,7 +4,7 @@ import threading
 
 import hashlib
 
-class ConsistentHashList():
+class ConsistentHashManager():
     def __init__(self, range):
         # determines possible machine id's from [0-range)
         self.range = range
@@ -87,25 +87,38 @@ class ConsistentHashList():
 # Ignore consistent hashing for now and implement base code
 class BaseProtocolManager():
     def __init__(self):
+        # stores node ip to status? HW doc says we need it but idk
+        self.nodes_dict = {}
         # stores file name to ip addr
         self.file_dict = {}
-        #
 
-    def add_file(self):
-        pass
+    def add_file(self, file_name, addr):
+        # TODO deal with duplicates?
+        self.file_dict[file_name] = addr
 
-    def remove_file(self):
-        pass
+    def remove_file(self, file_name):
+        if file_name in self.file_dict:
+            del self.file_dict[file_name]
 
-    
+    def get_file_location(self, file_name):
+        return self.file_dict.get(file_name, "NOT FOUND")
+
+    def add_node(self, addr):
+        self.nodes_dict[addr] = "O"
+
+# TODO move to shared file
+class Message():
+    '''All messages should be pascal string notation with length followed by a JSON encoded string'''
+    pass
 
 
-class ThreadedBootstrapHandler(socketserver.BaseRequestHandler):
+class BootstrapHandler(socketserver.BaseRequestHandler):
     def handle(self):
         data = bytes(self.request.recv(1024), 'ascii')
-        curr_thread = threading.current_thread()
+        # curr_thread = threading.current_thread()
 
         # TODO: parse json and length field
+
 
         # TODO: process request
 
@@ -121,7 +134,7 @@ if __name__ == "__main__":
     # TODO read host and port from config file/command line
     HOST, PORT = "localhost", 8000
 
-    server = ThreadedTCPServer((HOST, PORT), ThreadedBootstrapHandler)
+    server = ThreadedTCPServer((HOST, PORT), BootstrapHandler)
     # ip, port = server.server_address
 
     server_thread = threading.Thread(target=server.serve_forever)
