@@ -3,6 +3,7 @@ import threading
 import socketserver
 import sys
 
+import argparse
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
 # FUSE(client) CODE
@@ -46,10 +47,18 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass
 
 if __name__ == "__main__":
-    HOST, PORT = "localhost", 8000
+    parse = argparse.ArgumentParser()
+    parse.add_argument("bt_addr",   type=str,   help="Boot strap node address")
+    parse.add_argument("bt_port",   type=int,   help="Boot strap node port")
+    parse.add_argument("mnt_point", type=str,   help="FUSE mount point")
+    parse.add_argument("--port",    type=int,   default=8080, help="Server port (default 8080)")
+    args = parse.parse_args()
 
-    bt_addr = sys.argv[1]
-    fuse_mnt_point = sys.argv[2]
+    HOST, PORT      = "localhost", args.port
+
+    bt_addr         = args.bt_addr
+    bt_port         = args.bt_port
+    fuse_mnt_point  = args.mnt_point
 
     # start FUSE
     # fuse = FUSE(Difuse(), fuse_mnt_point, foreground=True)
