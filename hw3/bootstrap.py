@@ -56,10 +56,10 @@ class ConsistentHashManager():
         if not self.client_list:
             return None
 
-        for elem in self.client_list:
-            if hash < elem[0]:
-                return elem[1]
-            
+        for id, addr in self.client_list:
+            if hash < id:
+                return addr
+
         return self.client_list[0][1]
 
 
@@ -75,7 +75,7 @@ class ConsistentHashManager():
 
         if pos == -1:
             return False
-        
+
         self.client_list.pop(pos)
         return True
 
