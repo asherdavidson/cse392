@@ -1,12 +1,12 @@
 import unittest
-from bootstrap import ConsistentHashList
+from bootstrap import ConsistentHashManager
 
-class TestConsistentHashList(unittest.TestCase):
+class TestConsistentHashManager(unittest.TestCase):
     def setUp(self):
-        self.list = ConsistentHashList(1000000)
+        self.list = ConsistentHashManager(1000000)
 
     def test_add_client(self):
-        self.list.add_client('192.168.1.1')     # 280952 
+        self.list.add_client('192.168.1.1')     # 280952
         self.list.add_client('192.168.1.35')    # 957443
         self.list.add_client('192.168.1.61')    # 925877
         self.list.add_client('192.168.1.11')    # 187424
