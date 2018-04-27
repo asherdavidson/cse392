@@ -5,6 +5,7 @@ import sys
 
 import argparse
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
+from utils.message import Message
 
 # FUSE(client) CODE
 class Difuse(Operations):

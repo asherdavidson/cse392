@@ -4,8 +4,8 @@ import threading
 
 import argparse
 import hashlib
-import json
-from construct import Int32ub, PascalString
+
+from utils.message import Message
 
 class ConsistentHashManager():
     def __init__(self, range):
@@ -110,18 +110,6 @@ class BaseProtocolManager():
         self.nodes.add(addr)
 
 base_mgr = BaseProtocolManager()
-
-
-# TODO move to shared file?
-class Message():
-    @classmethod
-    def build(cld, obj):
-        return PascalString(Int32ub, "utf8").build(json.dumps(obj))
-
-    @classmethod
-    def parse(cls, msg):
-        json_str = PascalString(Int32ub, "utf8").parse(msg)
-        return json.loads(json_str)
 
 
 def process_msg(msg, request):
