@@ -10,3 +10,7 @@ class Message():
     def parse(cls, msg):
         json_str = PascalString(Int32ub, "utf8").parse(msg)
         return json.loads(json_str)
+
+    @classmethod
+    def parse_length(cls, buf):
+        return Int32ub.parse(buf)

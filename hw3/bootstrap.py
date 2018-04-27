@@ -147,11 +147,11 @@ def process_msg(msg, request, client_addr):
 
 class BootstrapHandler(socketserver.BaseRequestHandler):
     def handle(self):
-        # TODO: read 4 bytes, then read the remaining content
-        data = self.request.recv(1024)
+        length = self.request.recv(4)
+        data = self.request.recv(Message.parse_length(length))
         # curr_thread = threading.current_thread()
 
-        msg = Message.parse(data)
+        msg = Message.parse(length + data)
         process_msg(msg, self.request, self.client_address)
 
 
@@ -170,7 +170,7 @@ if __name__ == "__main__":
     # ip, port = server.server_address
 
     server_thread = threading.Thread(target=server.serve_forever)
-    server_thread.daemon = True
+    server_thread.daemon = False
     server_thread.start()
 
     print("Bootstrap server started on port: {}".format(PORT))
