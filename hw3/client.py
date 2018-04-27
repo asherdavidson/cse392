@@ -3,13 +3,26 @@ import socket
 import threading
 import socketserver
 import sys
-
-from stat import S_IFDIR, S_IFLNK, S_IFREG
-from time import time
-
 import argparse
+from stat import S_IFDIR, S_IFLNK, S_IFREG
+
+from construct import Int32ub
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
+
 from utils.message import Message
+
+
+def send_message(addr, port, json):
+    with socket.socket() as s:
+        s.connect((addr, port))
+
+        s.sendall(Message.build(json))
+
+        resp_len = s.recv(4)
+        resp_data = s.recv(Int32ub.parse(resp_len))
+
+        return Message.parse(resp_len + resp_data)
+
 
 # FUSE(client) CODE
 class DifuseFilesystem(Operations):
@@ -81,20 +94,14 @@ class ServerHandler(socketserver.BaseRequestHandler):
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass
 
-
 def join_cluster(addr, port):
     '''
         Takes bootstrap node addr and port
     '''
-    with socket.socket() as s:
-        s.connect((addr, port))
-
-        s.sendall(Message.build({
-            "command"   : "JOIN"
-        }))
-
-        resp = Message.parse(s.recv(1024))
-        return resp['reply'] == 'ACK_JOIN'
+    resp = send_message(addr, port, {
+        "command": "JOIN"
+    })
+    return resp['reply'] == 'ACK_JOIN'
 
 
 if __name__ == "__main__":
