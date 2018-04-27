@@ -92,12 +92,12 @@ class BaseProtocolManager():
     def __init__(self):
         # stores node ip to status? HW doc says we need it but idk
         self.nodes = set()
-        # stores file name to ip addr
+        # stores file name to (addr, port) tuple
         self.file_dict = {}
 
-    def add_file(self, file_name, addr):
+    def add_file(self, file_name, addr, port):
         # TODO deal with duplicates?
-        self.file_dict[file_name] = addr
+        self.file_dict[file_name] = (addr, port)
 
     def remove_file(self, file_name):
         if file_name in self.file_dict:
