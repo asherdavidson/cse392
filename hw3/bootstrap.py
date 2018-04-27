@@ -124,8 +124,10 @@ def process_msg(msg, request, client_addr):
     if cmd == 'JOIN':
         if base_mgr.add_node(*client_addr):
             response['reply'] = 'ACK_JOIN'
+            print(f'{client_addr} joined')
         else:
             response['reply'] = 'JOIN_FAILED'
+            print(f'{client_addr} failed to join')
 
     elif cmd == 'FILE_ADD':
         response['reply'] = 'ACK ADD'
@@ -170,7 +172,9 @@ if __name__ == "__main__":
     # ip, port = server.server_address
 
     server_thread = threading.Thread(target=server.serve_forever)
-    server_thread.daemon = False
+    # server_thread.daemon = True
     server_thread.start()
 
     print("Bootstrap server started on port: {}".format(PORT))
+
+    # TODO: repl???
