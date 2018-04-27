@@ -106,7 +106,7 @@ class BaseProtocolManager():
     def get_file_location(self, file_name):
         return self.file_dict.get(file_name, "NOT FOUND")
 
-    def add_node(self, addr, port):
+    def add_client(self, addr, port):
         new_node = (addr, port)
         if new_node in self.nodes:
             return False
@@ -119,16 +119,29 @@ base_mgr = BaseProtocolManager()
 
 def process_msg(msg, request, client_addr):
     cmd = msg.get('command')
+    host = client_addr[0]
     response = {}
 
     if cmd == 'JOIN':
-        if base_mgr.add_node(*client_addr):
+        port = msg.get('port')
+
+        if base_mgr.add_client(host, port):
             response['reply'] = 'ACK_JOIN'
             print(f'{client_addr} joined')
         else:
             response['reply'] = 'JOIN_FAILED'
             print(f'{client_addr} failed to join')
+    elif cmd == 'FILES_ADD':
+        port = msg.get('port')
 
+        files_list = msg.get('files')
+        
+        # shouldn't expect any problems for now
+        for f in files_list:
+            base_mgr.add_file(f, host, port)
+
+        print(f'{client_addr} added {len(files_list)} files')
+        response['reply'] = 'ACK_ADD'        
     elif cmd == 'FILE_ADD':
         response['reply'] = 'ACK ADD'
 

@@ -29,12 +29,6 @@ class DifuseFilesystem(Operations):
     def __init__(self, file_cache):
         self.file_cache = file_cache
 
-        if not os.path.exists(self.file_cache):
-            os.mkdir(file_cache)
-
-        if not os.path.isdir(file_cache):
-            raise ValueError('file_cache exists, but is not a directory')
-
     def create(self, path, mode):
         print('create')
         # TODO
@@ -94,14 +88,24 @@ class ServerHandler(socketserver.BaseRequestHandler):
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass
 
-def join_cluster(addr, port):
+def join_cluster(bt_addr, bt_port, node_port, local_files):
     '''
-        Takes bootstrap node addr and port
+        Takes bootstrap node addr and port, and node_port
     '''
-    resp = send_message(addr, port, {
-        "command": "JOIN"
+    resp = send_message(bt_addr, bt_port, {
+        "command"   :   "JOIN",
+        "port"      :   node_port
     })
-    return resp['reply'] == 'ACK_JOIN'
+    
+    if resp['reply'] != 'ACK_JOIN': return False
+
+    resp = send_message(bt_addr, bt_port, {
+        "command"   :   "FILES_ADD",
+        "files"     :   local_files,
+        "port"      :   node_port
+    })
+
+    return resp['reply'] == 'ACK_ADD'
 
 
 if __name__ == "__main__":
@@ -120,8 +124,17 @@ if __name__ == "__main__":
     fuse_mount_point = args.mount_point
     file_cache  = args.file_cache
 
+    # Handle file_cache dir
+    if not os.path.exists(file_cache):
+        os.mkdir(file_cache)
+
+    if not os.path.isdir(file_cache):
+        raise ValueError('file_cache exists, but is not a directory')
+
     # Connect to Bootstrap node first. Exit on failure
-    if not join_cluster(bootstrap_addr, bootstrap_port):
+    local_files = os.listdir(file_cache)
+
+    if not join_cluster(bootstrap_addr, bootstrap_port, PORT, local_files):
         sys.exit()
     print("Registered with Bootstrap")
 
