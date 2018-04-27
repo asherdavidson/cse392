@@ -126,14 +126,19 @@ def process_msg(msg, request, client_addr):
             response['reply'] = 'ACK_JOIN'
         else:
             response['reply'] = 'JOIN_FAILED'
+
     elif cmd == 'FILE_ADD':
         response['reply'] = 'ACK ADD'
+
     elif cmd == 'FILE_REMOVE':
         response['reply'] = 'ACK RM'
+
     elif cmd == 'FILE_LOOKUP':
         response['reply'] = 'ACK LOOKUP'
+
     elif cmd == 'LIST_DIR':
         response['reply'] = 'ACK LS'
+
     elif cmd == 'LEAVE':
         response['reply'] = 'ACK LEAVE'
 
@@ -142,6 +147,7 @@ def process_msg(msg, request, client_addr):
 
 class BootstrapHandler(socketserver.BaseRequestHandler):
     def handle(self):
+        # TODO: read 4 bytes, then read the remaining content
         data = self.request.recv(1024)
         # curr_thread = threading.current_thread()
 
