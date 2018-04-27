@@ -131,17 +131,19 @@ def process_msg(msg, request, client_addr):
         else:
             response['reply'] = 'JOIN_FAILED'
             print(f'{client_addr} failed to join')
+
     elif cmd == 'FILES_ADD':
         port = msg.get('port')
 
         files_list = msg.get('files')
-        
+
         # shouldn't expect any problems for now
         for f in files_list:
             base_mgr.add_file(f, host, port)
 
         print(f'{client_addr} added {len(files_list)} files')
-        response['reply'] = 'ACK_ADD'        
+        response['reply'] = 'ACK_ADD'
+
     elif cmd == 'FILE_ADD':
         response['reply'] = 'ACK ADD'
 

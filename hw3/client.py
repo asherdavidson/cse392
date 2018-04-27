@@ -11,7 +11,14 @@ from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 from utils.message import Message
 
 
+global PORT
+
+
 def send_message(addr, port, json):
+    global PORT
+
+    json['port'] = PORT
+
     with socket.socket() as s:
         s.connect((addr, port))
 
@@ -89,27 +96,28 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
     pass
 
-def join_cluster(bt_addr, bt_port, node_port, local_files):
+def join_cluster(bt_addr, bt_port, local_files):
     '''
         Takes bootstrap node addr and port, node_port, and files_list
     '''
     resp = send_message(bt_addr, bt_port, {
-        "command"   :   "JOIN",
-        "port"      :   node_port
+        "command": "JOIN",
     })
-    
-    if resp['reply'] != 'ACK_JOIN': return False
+
+    if resp['reply'] != 'ACK_JOIN':
+        return False
 
     resp = send_message(bt_addr, bt_port, {
-        "command"   :   "FILES_ADD",
-        "files"     :   local_files,
-        "port"      :   node_port
+        "command": "FILES_ADD",
+        "files":   local_files,
     })
 
     return resp['reply'] == 'ACK_ADD'
 
 
 if __name__ == "__main__":
+    global PORT
+
     parse = argparse.ArgumentParser()
     parse.add_argument("bootstrap_addr", type=str, help="Boot strap node address")
     parse.add_argument("bootstrap_port", type=int, help="Boot strap node port")
@@ -135,7 +143,7 @@ if __name__ == "__main__":
     # Connect to Bootstrap node first. Exit on failure
     local_files = os.listdir(file_cache)
 
-    if not join_cluster(bootstrap_addr, bootstrap_port, PORT, local_files):
+    if not join_cluster(bootstrap_addr, bootstrap_port, local_files):
         sys.exit()
     print("Registered with Bootstrap")
 
