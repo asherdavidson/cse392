@@ -3,6 +3,8 @@ import socketserver
 import threading
 
 import hashlib
+import json
+from construct import VarInt, PascalString
 
 class ConsistentHashManager():
     def __init__(self, range):
@@ -88,7 +90,7 @@ class ConsistentHashManager():
 class BaseProtocolManager():
     def __init__(self):
         # stores node ip to status? HW doc says we need it but idk
-        self.nodes_dict = {}
+        self.nodes = set()
         # stores file name to ip addr
         self.file_dict = {}
 
@@ -104,26 +106,45 @@ class BaseProtocolManager():
         return self.file_dict.get(file_name, "NOT FOUND")
 
     def add_node(self, addr):
-        self.nodes_dict[addr] = "O"
+        self.nodes.add(addr)
 
-# TODO move to shared file
+base_mgr = BaseProtocolManager()
+
+# TODO move to shared file?
 class Message():
-    '''All messages should be pascal string notation with length followed by a JSON encoded string'''
-    pass
+    @classmethod
+    def build(cld, obj):
+        return PascalString(VarInt, "utf8").build(json.dumps(obj))
+
+    @classmethod
+    def parse(cls, msg):
+        json_str = PascalString(VarInt, "utf8").parse(msg)
+        return json.loads(json_str)
+
+
+def process_msg(msg, request):
+    cmd = msg.get('command')
+    response = {}
+
+    if cmd == 'JOIN':
+        response['reply'] = 'WELCOME'
+    elif cmd == 'FILE_LOOKUP':
+        pass
+    elif cmd == 'LIST_DIR':
+        pass
+    elif cmd == 'LEAVE':
+        pass
+
+    request.sendall(Message.build(response))
 
 
 class BootstrapHandler(socketserver.BaseRequestHandler):
     def handle(self):
-        data = bytes(self.request.recv(1024), 'ascii')
+        data = self.request.recv(1024)
         # curr_thread = threading.current_thread()
 
-        # TODO: parse json and length field
-
-
-        # TODO: process request
-
-        response = bytes("Hello!", "ascii")
-        self.request.sendall(response)
+        msg = Message.parse(data)
+        process_msg(msg, self.request)
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
