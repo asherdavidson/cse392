@@ -2,6 +2,7 @@ import socket
 import socketserver
 import threading
 
+import argparse
 import hashlib
 import json
 from construct import VarInt, PascalString
@@ -157,8 +158,11 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 
 if __name__ == "__main__":
-    # TODO read host and port from config file/command line
-    HOST, PORT = "localhost", 8000
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--port', type=int, default=8000, help='Port number to listen on (default 8000)') 
+    args = parser.parse_args()
+
+    HOST, PORT = "localhost", args.port
 
     server = ThreadedTCPServer((HOST, PORT), BootstrapHandler)
     # ip, port = server.server_address
