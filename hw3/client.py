@@ -6,7 +6,6 @@ import sys
 import argparse
 from stat import S_IFDIR, S_IFLNK, S_IFREG
 
-from construct import Int32ub
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
 from utils.message import Message
@@ -19,7 +18,7 @@ def send_message(addr, port, json):
         s.sendall(Message.build(json))
 
         resp_len = s.recv(4)
-        resp_data = s.recv(Int32ub.parse(resp_len))
+        resp_data = s.recv(Message.parse_length(resp_len))
 
         return Message.parse(resp_len + resp_data)
 
@@ -85,12 +84,14 @@ class ServerHandler(socketserver.BaseRequestHandler):
     def handle(self):
         pass
 
+
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+    allow_reuse_address = True
     pass
 
 def join_cluster(bt_addr, bt_port, node_port, local_files):
     '''
-        Takes bootstrap node addr and port, and node_port
+        Takes bootstrap node addr and port, node_port, and files_list
     '''
     resp = send_message(bt_addr, bt_port, {
         "command"   :   "JOIN",
@@ -145,5 +146,5 @@ if __name__ == "__main__":
     print("Node server started on port: {}".format(PORT))
 
     # start FUSE
-    fuse = FUSE(DifuseFilesystem(file_cache), fuse_mount_point, foreground=True)
     print("Fuse serving files at: {}".format(fuse_mount_point))
+    fuse = FUSE(DifuseFilesystem(file_cache), fuse_mount_point, foreground=True)
