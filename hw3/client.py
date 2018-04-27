@@ -47,6 +47,22 @@ class ServerHandler(socketserver.BaseRequestHandler):
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass
 
+
+def join_cluster(addr, port):
+    '''
+        Takes bootstrap node addr and port
+    '''
+    with socket.socket() as s:
+        s.connect((addr, port))
+
+        s.sendall(Message.build({
+            "command"   : "JOIN"
+        }))
+
+        resp = Message.parse(s.recv(1024))
+        return resp['reply'] == 'ACK_JOIN'
+
+
 if __name__ == "__main__":
     parse = argparse.ArgumentParser()
     parse.add_argument("bt_addr",   type=str,   help="Boot strap node address")
@@ -60,6 +76,11 @@ if __name__ == "__main__":
     bt_addr         = args.bt_addr
     bt_port         = args.bt_port
     fuse_mnt_point  = args.mnt_point
+
+    # Connect to Bootstrap node first. Exit on failure
+    if not join_cluster(bt_addr, bt_port):
+        sys.exit()
+    print("Registered with Bootstrap")
 
     # start FUSE
     # fuse = FUSE(Difuse(), fuse_mnt_point, foreground=True)
