@@ -110,6 +110,7 @@ class BaseProtocolManager():
 
 base_mgr = BaseProtocolManager()
 
+
 # TODO move to shared file?
 class Message():
     @classmethod
@@ -127,13 +128,17 @@ def process_msg(msg, request):
     response = {}
 
     if cmd == 'JOIN':
-        response['reply'] = 'WELCOME'
+        response['reply'] = 'ACK JOIN'
+    elif cmd == 'FILE_ADD':
+        response['reply'] = 'ACK ADD'
+    elif cmd == 'FILE_REMOVE':
+        response['reply'] = 'ACK RM'
     elif cmd == 'FILE_LOOKUP':
-        pass
+        response['reply'] = 'ACK LOOKUP'
     elif cmd == 'LIST_DIR':
-        pass
+        response['reply'] = 'ACK LS'
     elif cmd == 'LEAVE':
-        pass
+        response['reply'] = 'ACK LEAVE'
 
     request.sendall(Message.build(response))
 
