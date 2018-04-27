@@ -5,7 +5,7 @@ import threading
 import argparse
 import hashlib
 import json
-from construct import VarInt, PascalString
+from construct import Int32ub, PascalString
 
 class ConsistentHashManager():
     def __init__(self, range):
@@ -116,11 +116,11 @@ base_mgr = BaseProtocolManager()
 class Message():
     @classmethod
     def build(cld, obj):
-        return PascalString(VarInt, "utf8").build(json.dumps(obj))
+        return PascalString(Int32ub, "utf8").build(json.dumps(obj))
 
     @classmethod
     def parse(cls, msg):
-        json_str = PascalString(VarInt, "utf8").parse(msg)
+        json_str = PascalString(Int32ub, "utf8").parse(msg)
         return json.loads(json_str)
 
 
