@@ -125,5 +125,5 @@ if __name__ == "__main__":
     print("Node server started on port: {}".format(PORT))
 
     # start FUSE
-    fuse = FUSE(DifuseFilesystem(file_cache), fuse_mount_point, foreground=False)
+    fuse = FUSE(DifuseFilesystem(file_cache), fuse_mount_point, foreground=True)
     print("Fuse serving files at: {}".format(fuse_mount_point))

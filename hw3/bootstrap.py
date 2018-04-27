@@ -170,7 +170,9 @@ if __name__ == "__main__":
     # ip, port = server.server_address
 
     server_thread = threading.Thread(target=server.serve_forever)
-    server_thread.daemon = True
+    # server_thread.daemon = True
     server_thread.start()
 
     print("Bootstrap server started on port: {}".format(PORT))
+
+    # TODO: repl???
