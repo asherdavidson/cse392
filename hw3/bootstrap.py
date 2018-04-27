@@ -90,7 +90,7 @@ class ConsistentHashManager():
 # Ignore consistent hashing for now and implement base code
 class BaseProtocolManager():
     def __init__(self):
-        # stores node ip to status? HW doc says we need it but idk
+        # stores (addr, port) tuple
         self.nodes = set()
         # stores file name to (addr, port) tuple
         self.file_dict = {}
@@ -106,18 +106,26 @@ class BaseProtocolManager():
     def get_file_location(self, file_name):
         return self.file_dict.get(file_name, "NOT FOUND")
 
-    def add_node(self, addr):
-        self.nodes.add(addr)
+    def add_node(self, addr, port):
+        new_node = (addr, port)
+        if new_node in self.nodes:
+            return False
+        else:
+            self.nodes.add(new_node)
+            return True
 
 base_mgr = BaseProtocolManager()
 
 
-def process_msg(msg, request):
+def process_msg(msg, request, client_addr):
     cmd = msg.get('command')
     response = {}
 
     if cmd == 'JOIN':
-        response['reply'] = 'ACK JOIN'
+        if base_mgr.add_node(*client_addr):
+            response['reply'] = 'ACK_JOIN'
+        else:
+            response['reply'] = 'JOIN_FAILED'
     elif cmd == 'FILE_ADD':
         response['reply'] = 'ACK ADD'
     elif cmd == 'FILE_REMOVE':
@@ -138,7 +146,7 @@ class BootstrapHandler(socketserver.BaseRequestHandler):
         # curr_thread = threading.current_thread()
 
         msg = Message.parse(data)
-        process_msg(msg, self.request)
+        process_msg(msg, self.request, self.client_address)
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):

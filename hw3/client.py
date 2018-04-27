@@ -81,6 +81,22 @@ class ServerHandler(socketserver.BaseRequestHandler):
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass
 
+
+def join_cluster(addr, port):
+    '''
+        Takes bootstrap node addr and port
+    '''
+    with socket.socket() as s:
+        s.connect((addr, port))
+
+        s.sendall(Message.build({
+            "command"   : "JOIN"
+        }))
+
+        resp = Message.parse(s.recv(1024))
+        return resp['reply'] == 'ACK_JOIN'
+
+
 if __name__ == "__main__":
     parse = argparse.ArgumentParser()
     parse.add_argument("bootstrap_addr", type=str, help="Boot strap node address")
@@ -97,6 +113,11 @@ if __name__ == "__main__":
     fuse_mount_point = args.mount_point
     file_cache  = args.file_cache
 
+    # Connect to Bootstrap node first. Exit on failure
+    if not join_cluster(bootstrap_addr, bootstrap_port):
+        sys.exit()
+    print("Registered with Bootstrap")
+
     server = ThreadedTCPServer((HOST, PORT), ServerHandler)
     server_thread = threading.Thread(target=server.serve_forever)
     server_thread.daemon = True
@@ -104,5 +125,5 @@ if __name__ == "__main__":
     print("Node server started on port: {}".format(PORT))
 
     # start FUSE
+    fuse = FUSE(DifuseFilesystem(file_cache), fuse_mount_point, foreground=False)
     print("Fuse serving files at: {}".format(fuse_mount_point))
-    fuse = FUSE(DifuseFilesystem(file_cache), fuse_mount_point, foreground=True)
