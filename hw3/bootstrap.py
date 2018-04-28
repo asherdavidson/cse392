@@ -155,6 +155,8 @@ class BootstrapHandler(RequestHandler):
             print(f'{client_node} joined')
             return {
                 'reply': 'ACK_JOIN',
+                'local_addr': client_node.addr,
+                'local_port': client_node.port,
             }
 
         else:

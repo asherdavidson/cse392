@@ -7,6 +7,7 @@ import argparse
 from time import time
 from stat import S_IFDIR, S_IFLNK, S_IFREG
 from errno import *
+from base64 import b64decode, b64encode
 
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
@@ -47,6 +48,8 @@ class FuseApi(object):
         if resp['reply'] != 'ACK_JOIN':
             raise Exception('Could not join the network')
 
+        self.local_node = Node(resp['local_addr'], resp['local_port'])
+
         resp = self.__send_message(self.bootstrap_node, {
             "command": "FILES_ADD",
             "files":   os.listdir(self.local_files),
@@ -76,7 +79,7 @@ class FuseApi(object):
         os.chmod(local_path, mode)
 
         resp = self.__send_message(self.bootstrap_node, {
-            'command': 'FILE_ADD',
+            'command': 'FILES_ADD',
             'path': path,
         })
 
@@ -97,6 +100,31 @@ class FuseApi(object):
             raise FuseOSError(ENOENT)
 
         return resp['stat']
+
+    def read(self, path, size, offset, fh):
+        node = self.get_file_location(path)
+
+        # read locally
+        if node == self.local_node:
+            localpath = os.path.join(self.local_files, path[1:])
+
+            with open(localpath, 'rb') as f:
+                f.seek(offset)
+                return f.read(size)
+
+        # read from network
+        else:
+            resp = self.__send_message(node, {
+                'command': 'READ',
+                'path': path,
+                'size': size,
+                'offset': offset,
+            })
+
+            if resp['reply'] != 'ACK_READ':
+                raise FuseOSError(EIO)
+
+            return b64decode(resp['data'].encode())
 
     def readdir(self):
         '''Gets the current directory contents from the bootstrap node'''
@@ -131,13 +159,13 @@ class DifuseFilesystem(Operations):
 
     def open(self, path, flags):
         print('open')
-        # TODO
-        pass
+        # We don't need to actually open the file,
+        # we can just return 0 and handle read
+        return 0
 
     def read(self, path, size, offset, fh):
         print('read')
-        # TODO
-        pass
+        return self.api.read(path, size, offset, fh)
 
     def readdir(self, path, fh):
         print('readdir')
@@ -173,6 +201,23 @@ class ServerHandler(RequestHandler):
 
         if cmd == 'GET_ATTR':
             return self.get_attr(msg)
+
+        elif cmd == 'READ':
+            return self.read(msg)
+
+    def read(self, msg):
+        path = os.path.join(api.local_files, msg['path'][1:])
+        size = msg['size']
+        offset = msg['offset']
+
+        with open(path, 'rb') as f:
+            f.seek(offset)
+            buf = f.read(size)
+
+        return {
+            'reply': 'ACK_READ',
+            'data': b64encode(buf).decode(),
+        }
 
     def get_attr(self, msg):
         path = os.path.join(api.local_files, msg['path'][1:])
