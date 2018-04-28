@@ -1,11 +1,12 @@
 import socket
 import socketserver
 import threading
-
 import argparse
 import hashlib
 
 from utils.message import Message
+from utils.node import Node
+from utils.handler import RequestHandler
 
 class ConsistentHashManager():
     def __init__(self, range):
@@ -87,6 +88,14 @@ class ConsistentHashManager():
         return hash % self.range
 
 
+class File():
+    def __init__(self, st_mode, st_size):
+
+         st_atime,
+         st_ctime,
+         st_mtime,
+
+
 # Ignore consistent hashing for now and implement base code
 class BaseProtocolManager():
     def __init__(self):
@@ -95,81 +104,103 @@ class BaseProtocolManager():
         # stores file name to (addr, port) tuple
         self.file_dict = {}
 
-    def add_file(self, file_name, addr, port):
+    def add_file(self, file_name, node):
         # TODO deal with duplicates?
-        self.file_dict[file_name] = (addr, port)
+        self.file_dict[file_name] = node
 
     def remove_file(self, file_name):
         if file_name in self.file_dict:
             del self.file_dict[file_name]
 
-    def get_file_location(self, file_name):
-        return self.file_dict.get(file_name, "NOT FOUND")
+    def readdir(self):
+        return list(self.file_dict.keys())
 
-    def add_client(self, addr, port):
-        new_node = (addr, port)
-        if new_node in self.nodes:
+    def get_file_location(self, file_name):
+        # print(f'file_name={file_name}')
+        # print(self.file_dict)
+        # print(self.file_dict.get(file_name))
+        return self.file_dict.get(file_name[1:], None)
+
+    def add_client(self, node):
+        if node in self.nodes:
             return False
         else:
-            self.nodes.add(new_node)
+            self.nodes.add(node)
             return True
 
 base_mgr = BaseProtocolManager()
 
 
-def process_msg(msg, request, client_addr):
-    cmd = msg.get('command')
-    host = client_addr[0]
-    response = {}
+class BootstrapHandler(RequestHandler):
+    def process_msg(self, msg, client_node):
+        cmd = msg.get('command')
 
-    if cmd == 'JOIN':
-        port = msg.get('port')
+        if cmd == 'JOIN':
+            if base_mgr.add_client(client_node):
+                print(f'{client_node} joined')
+                return {
+                    'reply': 'ACK_JOIN',
+                }
 
-        if base_mgr.add_client(host, port):
-            response['reply'] = 'ACK_JOIN'
-            print(f'{client_addr} joined')
+            else:
+                print(f'{client_node} failed to join')
+                return {
+                    'reply': 'JOIN_FAILED',
+                }
+
+        elif cmd == 'FILES_ADD':
+            files_list = msg.get('files')
+
+            # shouldn't expect any problems for now
+            for f in files_list:
+                base_mgr.add_file(f, client_node)
+
+            print(f'{client_node} added {len(files_list)} files')
+            return {
+                'reply': 'ACK_ADD',
+            }
+
+        elif cmd == 'FILE_ADD':
+            return {
+                'reply': 'ACK_ADD',
+            }
+
+        elif cmd == 'FILE_REMOVE':
+            return {
+                'reply': 'ACK_RM',
+            }
+
+        elif cmd == 'FILE_LOOKUP':
+            return {
+                'reply': 'ACK_LOOKUP',
+            }
+
+        elif cmd == 'GET_FILE_LOC':
+            node = base_mgr.get_file_location(msg['file'])
+            if node == None:
+                return {
+                    'reply': 'FILE_NOT_FOUND'
+                }
+
+            return {
+                'reply': 'ACK_GET_FILE_LOC',
+                'addr': node.addr,
+                'port': node.port,
+            }
+
+        elif cmd == 'LIST_DIR':
+            return {
+                'reply': 'ACK_LS',
+                'files': base_mgr.readdir(),
+            }
+
+        elif cmd == 'LEAVE':
+            return {
+                'reply': 'ACK_LEAVE',
+            }
+
         else:
-            response['reply'] = 'JOIN_FAILED'
-            print(f'{client_addr} failed to join')
-
-    elif cmd == 'FILES_ADD':
-        port = msg.get('port')
-
-        files_list = msg.get('files')
-
-        # shouldn't expect any problems for now
-        for f in files_list:
-            base_mgr.add_file(f, host, port)
-
-        print(f'{client_addr} added {len(files_list)} files')
-        response['reply'] = 'ACK_ADD'
-
-    elif cmd == 'FILE_ADD':
-        response['reply'] = 'ACK ADD'
-
-    elif cmd == 'FILE_REMOVE':
-        response['reply'] = 'ACK RM'
-
-    elif cmd == 'FILE_LOOKUP':
-        response['reply'] = 'ACK LOOKUP'
-
-    elif cmd == 'LIST_DIR':
-        response['reply'] = 'ACK LS'
-
-    elif cmd == 'LEAVE':
-        response['reply'] = 'ACK LEAVE'
-
-    request.sendall(Message.build(response))
-
-
-class BootstrapHandler(socketserver.BaseRequestHandler):
-    def handle(self):
-        length = self.request.recv(4)
-        data = self.request.recv(Message.parse_length(length))
-        # curr_thread = threading.current_thread()
-
-        msg = Message.parse(length + data)
-        process_msg(msg, self.request, self.client_address)
+            print(f'Unknown command: {cmd}')
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -178,7 +209,7 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--port", type=int, default=8000, help="Port number to listen on (default 8000)")
+    parser.add_argument("-p", "--port", type=int, default=8000, help="Port number to listen on (default 8000)")
     args = parser.parse_args()
 
     HOST, PORT = "localhost", args.port
