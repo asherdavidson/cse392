@@ -97,8 +97,10 @@ class BaseProtocolManager():
         self.file_dict = {}
 
     def add_file(self, file_name, node):
-        # TODO deal with duplicates?
+        if file_name in self.file_dict:
+            return False
         self.file_dict[file_name] = node
+        return True
 
     def remove_file(self, file_name):
         if file_name in self.file_dict:
@@ -131,7 +133,7 @@ class BootstrapHandler(RequestHandler):
             return self.add_files(msg, client_node)
 
         elif cmd == 'FILE_ADD':
-            return self.add_file(msg)
+            return self.add_file(msg, client_node)
 
         elif cmd == 'FILE_REMOVE':
             return self.remove_file(msg)
@@ -173,10 +175,16 @@ class BootstrapHandler(RequestHandler):
             'reply': 'ACK_ADD',
         }
 
-    def add_file(self, msg):
-        return {
-            'reply': 'ACK_ADD',
-        }
+    def add_file(self, msg, client_node):
+        filename = msg['path']
+        if base_mgr.add_file(filename, client_node):
+            return {
+                'reply': 'ACK_ADD',
+            }
+        else:
+            return {
+                'reply': 'FILE_ALREADY_EXISTS'
+            }
 
     def remove_file(self, msg):
         return {

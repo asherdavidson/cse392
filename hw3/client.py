@@ -6,6 +6,7 @@ import sys
 import argparse
 from time import time
 from stat import S_IFDIR, S_IFLNK, S_IFREG
+from errno import *
 
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
 
@@ -61,18 +62,31 @@ class FuseApi(object):
         })
 
         if resp['reply'] == 'FILE_NOT_FOUND':
-            raise FileNotFoundError()
+            raise FuseOSError(ENOENT)
 
         if resp['reply'] != 'ACK_GET_FILE_LOC':
-            raise Exception('Could not lookup file location')
+            raise FuseOSError(ENOENT)
 
         return Node(resp['addr'], resp['port'])
 
+    def create(self, path, mode):
+        local_path = os.path.join(self.local_files, path[1:])
+        f = open(local_path, 'x')
+        f.close()
+        os.chmod(local_path, mode)
+
+        resp = self.__send_message(self.bootstrap_node, {
+            'command': 'FILE_ADD',
+            'path': path,
+        })
+
+        # if resp['reply'] == 'FILE_ALREADY_EXISTS':
+        #     return 0
+
+        return 0
+
     def getattr(self, path):
         node = self.get_file_location(path)
-
-        if node == None:
-            return None
 
         resp = self.__send_message(node, {
             'command': 'GET_ATTR',
@@ -80,7 +94,7 @@ class FuseApi(object):
         })
 
         if resp['reply'] != 'ACK_GET_ATTR':
-            return None
+            raise FuseOSError(ENOENT)
 
         return resp['stat']
 
@@ -90,7 +104,7 @@ class FuseApi(object):
             'command': 'LIST_DIR'
         })
         if resp['reply'] != 'ACK_LS':
-            raise Exception('Could not read directory from bootstrap')
+            raise FuseOSError(ENOENT)
 
         return resp['files']
 
@@ -106,8 +120,7 @@ class DifuseFilesystem(Operations):
 
     def create(self, path, mode):
         print('create')
-        # TODO
-        pass
+        return self.api.create(path, mode)
 
     def getattr(self, path, fh=None):
         print('getattr', path, fh)
