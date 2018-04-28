@@ -159,17 +159,20 @@ class ServerHandler(RequestHandler):
         cmd = msg.get('command')
 
         if cmd == 'GET_ATTR':
-            path = os.path.join(api.local_files, msg['path'][1:])
+            return self.get_attr(msg)
 
-            stat = os.lstat(path)
-            stat = dict((key, getattr(stat, key)) for key in
-                        ('st_atime', 'st_ctime', 'st_gid', 'st_mode',
-                         'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
+    def get_attr(self, msg):
+        path = os.path.join(api.local_files, msg['path'][1:])
 
-            return {
-                'reply': 'ACK_GET_ATTR',
-                'stat': stat,
-            }
+        stat = os.lstat(path)
+        stat = dict((key, getattr(stat, key)) for key in
+                    ('st_atime', 'st_ctime', 'st_gid', 'st_mode',
+                     'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
+
+        return {
+            'reply': 'ACK_GET_ATTR',
+            'stat': stat,
+        }
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):

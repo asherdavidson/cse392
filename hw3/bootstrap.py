@@ -121,78 +121,91 @@ base_mgr = BaseProtocolManager()
 
 
 class BootstrapHandler(RequestHandler):
-    # TODO
-    # def join(self)
-
     def process_msg(self, msg, client_node):
         cmd = msg.get('command')
 
         if cmd == 'JOIN':
-            if base_mgr.add_client(client_node):
-                print(f'{client_node} joined')
-                return {
-                    'reply': 'ACK_JOIN',
-                }
-
-            else:
-                print(f'{client_node} failed to join')
-                return {
-                    'reply': 'JOIN_FAILED',
-                }
+            return self.join(client_node)
 
         elif cmd == 'FILES_ADD':
-            files_list = msg.get('files')
-
-            # shouldn't expect any problems for now
-            for f in files_list:
-                base_mgr.add_file(f, client_node)
-
-            print(f'{client_node} added {len(files_list)} files')
-            return {
-                'reply': 'ACK_ADD',
-            }
+            return self.add_files(msg, client_node)
 
         elif cmd == 'FILE_ADD':
-            return {
-                'reply': 'ACK_ADD',
-            }
+            return self.add_file(msg)
 
         elif cmd == 'FILE_REMOVE':
-            return {
-                'reply': 'ACK_RM',
-            }
-
-        elif cmd == 'FILE_LOOKUP':
-            return {
-                'reply': 'ACK_LOOKUP',
-            }
+            return self.remove_file(msg)
 
         elif cmd == 'GET_FILE_LOC':
-            node = base_mgr.get_file_location(msg['file'])
-            if node == None:
-                return {
-                    'reply': 'FILE_NOT_FOUND'
-                }
-
-            return {
-                'reply': 'ACK_GET_FILE_LOC',
-                'addr': node.addr,
-                'port': node.port,
-            }
+            return self.get_file_loc(msg)
 
         elif cmd == 'LIST_DIR':
-            return {
-                'reply': 'ACK_LS',
-                'files': base_mgr.get_files_list(),
-            }
+            return self.list_dir()
 
         elif cmd == 'LEAVE':
-            return {
-                'reply': 'ACK_LEAVE',
-            }
+            return self.leave(client_node)
 
         else:
             print(f'Unknown command: {cmd}')
+
+    def join(self, client_node):
+        if base_mgr.add_client(client_node):
+            print(f'{client_node} joined')
+            return {
+                'reply': 'ACK_JOIN',
+            }
+
+        else:
+            print(f'{client_node} failed to join')
+            return {
+                'reply': 'JOIN_FAILED',
+            }
+
+    def add_files(self, msg, client_node):
+        files_list = msg.get('files')
+
+        # shouldn't expect any problems for now
+        for f in files_list:
+            base_mgr.add_file(f, client_node)
+
+        print(f'{client_node} added {len(files_list)} files')
+        return {
+            'reply': 'ACK_ADD',
+        }
+
+    def add_file(self, msg):
+        return {
+            'reply': 'ACK_ADD',
+        }
+
+    def remove_file(self, msg):
+        return {
+            'reply': 'ACK_RM',
+        }
+
+    def get_file_loc(self, msg):
+        node = base_mgr.get_file_location(msg['file'])
+        if node == None:
+            return {
+                'reply': 'FILE_NOT_FOUND'
+            }
+
+        return {
+            'reply': 'ACK_GET_FILE_LOC',
+            'addr': node.addr,
+            'port': node.port,
+        }
+
+    def list_dir(self):
+        return {
+            'reply': 'ACK_LS',
+            'files': base_mgr.get_files_list(),
+        }
+
+    def leave(self, client_node):
+        return {
+            'reply': 'ACK_LEAVE',
+        }
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
