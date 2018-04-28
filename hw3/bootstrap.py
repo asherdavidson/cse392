@@ -106,6 +106,9 @@ class BaseProtocolManager():
     def get_file_location(self, file_name):
         return self.file_dict.get(file_name, "NOT FOUND")
 
+    def get_files_list(self):
+        return list(self.file_dict.keys()) + ['.']
+
     def add_client(self, addr, port):
         new_node = (addr, port)
         if new_node in self.nodes:
@@ -150,11 +153,22 @@ def process_msg(msg, request, client_addr):
     elif cmd == 'FILE_REMOVE':
         response['reply'] = 'ACK RM'
 
-    elif cmd == 'FILE_LOOKUP':
-        response['reply'] = 'ACK LOOKUP'
+    elif cmd == 'FILE_LOOKUP' or cmd == 'GET_ATTR':
+        path = msg.get('path')
+        target = base_mgr.get_file_location(path)
+
+        if target != 'NOT FOUND':
+            response['target_addr'] = target[0]
+            response['target_port'] = target[1]
+            response['reply'] = 'ACK_LOOKUP'
+            print(f'Lookup for {path}. Found at {target}')
+        else:
+            response['reply'] = 'LOOKUP_FAILED'
+            print(f'Lookup for {path} failed')
 
     elif cmd == 'LIST_DIR':
-        response['reply'] = 'ACK LS'
+        response['files'] = base_mgr.get_files_list()
+        response['reply'] = 'ACK_LS'        
 
     elif cmd == 'LEAVE':
         response['reply'] = 'ACK LEAVE'
