@@ -4,6 +4,7 @@ import threading
 import socketserver
 import sys
 import argparse
+from time import time
 from stat import S_IFDIR, S_IFLNK, S_IFREG
 
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
@@ -68,12 +69,6 @@ class FuseApi(object):
         return Node(resp['addr'], resp['port'])
 
     def getattr(self, path):
-        if path == '/':
-            stat = os.lstat(self.local_files)
-            return dict((key, getattr(stat, key)) for key in
-                        ('st_atime', 'st_ctime', 'st_gid', 'st_mode',
-                         'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
-
         node = self.get_file_location(path)
 
         if node == None:
@@ -105,6 +100,10 @@ class DifuseFilesystem(Operations):
     def __init__(self, api):
         self.api = api
 
+        now = time()
+        self.root = dict(st_mode=(S_IFDIR | 0o755), st_ctime=now,
+                         st_mtime=now, st_atime=now, st_nlink=1)
+
     def create(self, path, mode):
         print('create')
         # TODO
@@ -112,6 +111,9 @@ class DifuseFilesystem(Operations):
 
     def getattr(self, path, fh=None):
         print('getattr', path, fh)
+        if path == '/':
+            return self.root
+
         return self.api.getattr(path)
 
     def open(self, path, flags):
@@ -126,7 +128,7 @@ class DifuseFilesystem(Operations):
 
     def readdir(self, path, fh):
         print('readdir')
-        return ['.'] + self.api.readdir()
+        return self.api.readdir()
 
     def rename(self, old, new):
         print('rename')
@@ -152,7 +154,6 @@ class DifuseFilesystem(Operations):
 
 
 # Server
-
 class ServerHandler(RequestHandler):
     def process_msg(self, msg, client_node):
         cmd = msg.get('command')

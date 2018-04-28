@@ -88,14 +88,6 @@ class ConsistentHashManager():
         return hash % self.range
 
 
-class File():
-    def __init__(self, st_mode, st_size):
-
-         st_atime,
-         st_ctime,
-         st_mtime,
-
-
 # Ignore consistent hashing for now and implement base code
 class BaseProtocolManager():
     def __init__(self):
@@ -112,13 +104,10 @@ class BaseProtocolManager():
         if file_name in self.file_dict:
             del self.file_dict[file_name]
 
-    def readdir(self):
-        return list(self.file_dict.keys())
+    def get_files_list(self):
+        return list(self.file_dict.keys()) + ['.']
 
     def get_file_location(self, file_name):
-        # print(f'file_name={file_name}')
-        # print(self.file_dict)
-        # print(self.file_dict.get(file_name))
         return self.file_dict.get(file_name[1:], None)
 
     def add_client(self, node):
@@ -132,6 +121,9 @@ base_mgr = BaseProtocolManager()
 
 
 class BootstrapHandler(RequestHandler):
+    # TODO
+    # def join(self)
+
     def process_msg(self, msg, client_node):
         cmd = msg.get('command')
 
@@ -191,7 +183,7 @@ class BootstrapHandler(RequestHandler):
         elif cmd == 'LIST_DIR':
             return {
                 'reply': 'ACK_LS',
-                'files': base_mgr.readdir(),
+                'files': base_mgr.get_files_list(),
             }
 
         elif cmd == 'LEAVE':
