@@ -107,7 +107,7 @@ class BaseProtocolManager():
             del self.file_dict[file_name]
 
     def get_files_list(self):
-        return list(self.file_dict.keys()) + ['.']
+        return list(self.file_dict.keys()) + ['.', '..']
 
     def get_file_location(self, file_name):
         return self.file_dict.get(file_name[1:], None)
