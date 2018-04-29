@@ -74,10 +74,8 @@ class FuseApi(object):
 
     def create(self, path, mode):
         # check if file exists in cluster before creating
+        # get_file_location errors out if this fails
         resp = self.get_file_location(path)
-
-        if resp['reply'] != 'FILE_NOT_FOUND':
-            return 0
 
         local_path = os.path.join(self.local_files, path[1:])
         f = open(local_path, 'x')
@@ -210,7 +208,7 @@ class DifuseFilesystem(Operations):
                          st_mtime=now, st_atime=now, st_nlink=2)
 
     def create(self, path, mode):
-        print('create')
+        print('create', path, mode)
         return self.api.create(path, mode)
 
     def getattr(self, path, fh=None):
@@ -221,13 +219,14 @@ class DifuseFilesystem(Operations):
         return self.api.getattr(path)
 
     def open(self, path, flags):
-        print('open')
+        print('open', path, flags)
         # We don't need to actually open the file,
         # we can just return 0 and handle read
-        return 0
+        return self.api.create(path, 0o755)
+        # return 0
 
     def read(self, path, size, offset, fh):
-        print('read')
+        print('read', path, size, offset, fh)
         return self.api.read(path, size, offset, fh)
 
     def readdir(self, path, fh):
@@ -248,7 +247,7 @@ class DifuseFilesystem(Operations):
         pass
 
     def write(self, path, data, offset, fh):
-        print('write')
+        print('write', path, len(data), offset)
         return self.api.write(path, data, offset, fh)
 
 
