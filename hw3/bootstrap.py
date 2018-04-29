@@ -169,8 +169,9 @@ class BootstrapHandler(RequestHandler):
         files_list = msg.get('files')
 
         # shouldn't expect any problems for now
-        for f in files_list:
-            base_mgr.add_file(f, client_node)
+        if files_list:
+            for f in files_list:
+                base_mgr.add_file(f, client_node)
 
         print(f'{client_node} added {len(files_list)} files')
         return {
@@ -178,8 +179,10 @@ class BootstrapHandler(RequestHandler):
         }
 
     def add_file(self, msg, client_node):
-        filename = msg['path']
+        filename = msg['path'][1:]
         if base_mgr.add_file(filename, client_node):
+            print(f'{client_node} added {len(filename)}')
+
             return {
                 'reply': 'ACK_ADD',
             }

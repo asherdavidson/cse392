@@ -73,18 +73,24 @@ class FuseApi(object):
         return Node(resp['addr'], resp['port'])
 
     def create(self, path, mode):
+        # check if file exists in cluster before creating
+        resp = self.__send_message(self.bootstrap_node, {
+            'command': 'GET_FILE_LOC',
+            'file': path,
+        })
+
+        if resp['reply'] != 'FILE_NOT_FOUND':
+            return 0
+
         local_path = os.path.join(self.local_files, path[1:])
         f = open(local_path, 'x')
         f.close()
         os.chmod(local_path, mode)
 
         resp = self.__send_message(self.bootstrap_node, {
-            'command': 'FILES_ADD',
+            'command': 'FILE_ADD',
             'path': path,
         })
-
-        # if resp['reply'] == 'FILE_ALREADY_EXISTS':
-        #     return 0
 
         return 0
 
@@ -126,6 +132,28 @@ class FuseApi(object):
 
             return b64decode(resp['data'].encode())
 
+    def write(self, path, data, offset, fh):
+        node = self.get_file_location(path)
+
+        if node == self.local_node:
+            localpath = os.path.join(self.local_files, path[1:])
+
+            with open(localpath, 'wb') as f:
+                f.seek(offset)
+                return f.write(data)
+        else:
+            resp = self.__send_message(node, {
+                'command': 'WRITE',
+                'path': path,
+                'offset': offset,
+                'data': b64encode(data).decode()
+            })
+
+            if resp['reply'] != 'ACK_WRITE':
+                raise FuseOSError(EIO)
+
+            return len(data)
+
     def readdir(self):
         '''Gets the current directory contents from the bootstrap node'''
         resp = self.__send_message(self.bootstrap_node, {
@@ -134,6 +162,7 @@ class FuseApi(object):
         if resp['reply'] != 'ACK_LS':
             raise FuseOSError(ENOENT)
 
+        print('Files: {}'.format(resp["files"]))
         return resp['files']
 
 
@@ -190,8 +219,7 @@ class DifuseFilesystem(Operations):
 
     def write(self, path, data, offset, fh):
         print('write')
-        # TODO
-        pass
+        return self.api.write(path, data, offset, fh)
 
 
 # Server
@@ -205,6 +233,9 @@ class ServerHandler(RequestHandler):
         elif cmd == 'READ':
             return self.read(msg)
 
+        elif cmd == 'WRITE':
+            return self.write(msg)
+
     def read(self, msg):
         path = os.path.join(api.local_files, msg['path'][1:])
         size = msg['size']
@@ -217,6 +248,19 @@ class ServerHandler(RequestHandler):
         return {
             'reply': 'ACK_READ',
             'data': b64encode(buf).decode(),
+        }
+
+    def write(self, msg):
+        path = os.path.join(api.local_files, msg['path'][1:])
+        offset = msg['offset']
+        data = b64decode(msg['data'].encode())
+
+        with open(path, 'wb') as f:
+            f.seek(offset)
+            f.write(data)
+
+        return {
+            'reply': 'ACK_WRITE'
         }
 
     def get_attr(self, msg):
