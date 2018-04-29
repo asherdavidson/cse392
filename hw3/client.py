@@ -75,7 +75,12 @@ class FuseApi(object):
     def create(self, path, mode):
         # check if file exists in cluster before creating
         # get_file_location errors out if this fails
-        resp = self.get_file_location(path)
+        try:
+            resp = self.get_file_location(path)
+            if resp:
+                return 0
+        except Exception:
+            pass
 
         local_path = os.path.join(self.local_files, path[1:])
         f = open(local_path, 'x')
