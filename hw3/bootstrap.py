@@ -226,11 +226,11 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('-h', '--host', type=str, default='localhost', help='IP to serve from')
+    parser.add_argument('-l', '--host', type=str, default='localhost', help='IP to serve from')
     parser.add_argument("-p", "--port", type=int, default=8000, help="Port number to listen on (default 8000)")
     args = parser.parse_args()
 
-    HOST, PORT = "localhost", args.port
+    HOST, PORT = args.host, args.port
 
     server = ThreadedTCPServer((HOST, PORT), BootstrapHandler)
     # ip, port = server.server_address
