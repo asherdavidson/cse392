@@ -74,10 +74,7 @@ class FuseApi(object):
 
     def create(self, path, mode):
         # check if file exists in cluster before creating
-        resp = self.__send_message(self.bootstrap_node, {
-            'command': 'GET_FILE_LOC',
-            'file': path,
-        })
+        resp = self.get_file_location(path)
 
         if resp['reply'] != 'FILE_NOT_FOUND':
             return 0
@@ -174,9 +171,10 @@ class FuseApi(object):
             os.truncate(localpath, length)
 
         else:
-            resp = self.__send_message(self.bootstrap_node, {
-                'command': 'GET_FILE_LOC',
-                'path': path
+            resp = self.__send_message(node, {
+                'command': 'TRUNCATE',
+                'path': path,
+                'length': length,
             })
 
             if resp['reply'] != 'ACK_TRUNCATE':
