@@ -181,8 +181,7 @@ class BootstrapHandler(RequestHandler):
     def add_file(self, msg, client_node):
         filename = msg['path'][1:]
         if base_mgr.add_file(filename, client_node):
-            print(f'{client_node} added {len(filename)}')
-
+            print(f'{client_node} added {filename}')
             return {
                 'reply': 'ACK_ADD',
             }

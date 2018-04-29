@@ -141,6 +141,7 @@ class FuseApi(object):
             with open(localpath, 'wb') as f:
                 f.seek(offset)
                 return f.write(data)
+
         else:
             resp = self.__send_message(node, {
                 'command': 'WRITE',
@@ -164,6 +165,22 @@ class FuseApi(object):
 
         print('Files: {}'.format(resp["files"]))
         return resp['files']
+
+    def truncate(self, path, length, fh):
+        node = self.get_file_location(path)
+
+        if node == self.local_node:
+            localpath = os.path.join(self.local_files, path[1:])
+            os.truncate(localpath, length)
+
+        else:
+            resp = self.__send_message(self.bootstrap_node, {
+                'command': 'GET_FILE_LOC',
+                'path': path
+            })
+
+            if resp['reply'] != 'ACK_TRUNCATE':
+                raise FuseOSError(EIO)
 
 
 # FUSE(client) CODE
@@ -197,21 +214,16 @@ class DifuseFilesystem(Operations):
         return self.api.read(path, size, offset, fh)
 
     def readdir(self, path, fh):
-        print('readdir')
+        print(f'readdir {path}')
         return self.api.readdir()
 
-    def rename(self, old, new):
-        print('rename')
-        # TODO
-        pass
-
     def statfs(self, path):
-        print('statfs')
+        print(f'statfs {path}')
         pass
 
     def truncate(self, path, length, fh=None):
-        print('truncate')
-        pass
+        print(f'truncate {path} to {length}')
+        return self.api.truncate(path, length, fh)
 
     def utimens(self, path, times=None):
         print('utimens')
@@ -235,6 +247,9 @@ class ServerHandler(RequestHandler):
 
         elif cmd == 'WRITE':
             return self.write(msg)
+
+        elif cmd == 'TRUNCATE':
+            return self.truncate(msg)
 
     def read(self, msg):
         path = os.path.join(api.local_files, msg['path'][1:])
@@ -260,7 +275,17 @@ class ServerHandler(RequestHandler):
             f.write(data)
 
         return {
-            'reply': 'ACK_WRITE'
+            'reply': 'ACK_WRITE',
+        }
+
+    def truncate(self, msg):
+        path = os.path.join(api.local_files, msg['path'][1:])
+        length = msg['length']
+
+        os.truncate(path, length)
+
+        return {
+            'reply': 'ACK_TRUNCATE',
         }
 
     def get_attr(self, msg):
