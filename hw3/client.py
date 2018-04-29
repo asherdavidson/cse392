@@ -374,13 +374,13 @@ if __name__ == "__main__":
         # Connect to Bootstrap node first. Exit on failure
         api = FuseApi(bootstrap_node, local_node, local_files)
         print("Registered with Bootstrap")
-        print(f"We are {local_node.addr}:{local_node.port}")
+        print(f"We are {api.local_node.addr}:{api.local_node.port}")
 
-        server = ThreadedTCPServer(local_node, ServerHandler)
+        server = ThreadedTCPServer(api.local_node, ServerHandler)
         server_thread = threading.Thread(target=server.serve_forever)
         server_thread.daemon = True
         server_thread.start()
-        print(f"Node server started on port: {local_node.port}")
+        print(f"Node server started on port: {api.local_node.port}")
 
         # start FUSE
         print(f"Fuse serving files at: {fuse_mount_point}")
