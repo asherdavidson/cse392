@@ -162,8 +162,27 @@ class FuseApi(object):
         if resp['reply'] != 'ACK_LS':
             raise FuseOSError(ENOENT)
 
-        print('Files: {}'.format(resp["files"]))
+        # print('Files: {}'.format(resp["files"]))
         return resp['files']
+
+    def utimens(self, path, times):
+        node = self.get_file_location(path)
+
+        if node == self.local_node:
+            localpath = os.path.join(self.local_files, path[1:])
+            os.utime(localpath, times=times)
+
+        else:
+            resp = self.__send_message(node, {
+                'command': 'UTIMENS',
+                'path': path,
+                'times': times,
+            })
+
+            if resp['reply'] != 'ACK_UTIMENS':
+                raise FuseOSError(EIO)
+
+        return 0
 
 
 # FUSE(client) CODE
@@ -214,7 +233,8 @@ class DifuseFilesystem(Operations):
         pass
 
     def utimens(self, path, times=None):
-        print('utimens')
+        print('utimens', path, times)
+        self.api.utimens(path, times)
         pass
 
     def write(self, path, data, offset, fh):
@@ -235,6 +255,19 @@ class ServerHandler(RequestHandler):
 
         elif cmd == 'WRITE':
             return self.write(msg)
+
+        elif cmd == 'UTIMENS':
+            return self.utimens(msg)
+
+    def utimens(self, msg):
+        path = os.path.join(api.local_files, msg['path'][1:])
+        times = msg['times']
+
+        os.utime(path, times=tuple(times))
+
+        return {
+            'reply': 'ACK_UTIMENS',
+        }
 
     def read(self, msg):
         path = os.path.join(api.local_files, msg['path'][1:])
