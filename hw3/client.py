@@ -202,6 +202,32 @@ class FuseApi(object):
 
         return 0
 
+    def unlink(self, path):
+        # We need to delete from bootstrap and node
+        node = self.get_file_location(path)
+
+        if node == self.local_node:
+            localpath = os.path.join(self.local_files, path[1:])
+            os.unlink(localpath)
+
+        else:
+            resp = self.__send_message(node, {
+                'command': 'UNLINK',
+                'path': path,
+            })
+
+            if resp['reply'] != 'ACK_UNLINK':
+                raise FuseOSError(EIO)
+        
+        # could make it into single bootstrap call
+        resp = self.__send_message(self.bootstrap_node, {
+            'command': 'FILE_REMOVE',
+            'path': path,
+        })
+
+        if resp['reply'] != 'ACK_RM':
+            raise FuseOSError(EIO)
+
 
 # FUSE(client) CODE
 class DifuseFilesystem(Operations):
@@ -255,6 +281,10 @@ class DifuseFilesystem(Operations):
         print('write', path, len(data), offset)
         return self.api.write(path, data, offset, fh)
 
+    def unlink(self, path):
+        print(f'unlink {path}')
+        return self.api.unlink(path)
+
 
 # Server
 class ServerHandler(RequestHandler):
@@ -275,6 +305,9 @@ class ServerHandler(RequestHandler):
 
         elif cmd == 'UTIMENS':
             return self.utimens(msg)
+
+        elif cmd == 'UNLINK':
+            return self.unlink(msg)
 
     def utimens(self, msg):
         path = os.path.join(api.local_files, msg['path'][1:])
@@ -334,6 +367,15 @@ class ServerHandler(RequestHandler):
         return {
             'reply': 'ACK_GET_ATTR',
             'stat': stat,
+        }
+
+    def unlink(self, msg):
+        path = os.path.join(api.local_files, msg['path'][1:])
+
+        os.unlink(path)
+
+        return {
+            'reply': 'ACK_UNLINK'
         }
 
 

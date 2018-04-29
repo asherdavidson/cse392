@@ -136,7 +136,7 @@ class BootstrapHandler(RequestHandler):
             return self.add_file(msg, client_node)
 
         elif cmd == 'FILE_REMOVE':
-            return self.remove_file(msg)
+            return self.remove_file(msg, client_node)
 
         elif cmd == 'GET_FILE_LOC':
             return self.get_file_loc(msg)
@@ -190,7 +190,11 @@ class BootstrapHandler(RequestHandler):
                 'reply': 'FILE_ALREADY_EXISTS'
             }
 
-    def remove_file(self, msg):
+    def remove_file(self, msg, client_node):
+        filename = msg['path'][1:]
+        base_mgr.remove_file(filename)
+        print(f'{client_node} removed {filename}')
+
         return {
             'reply': 'ACK_RM',
         }
