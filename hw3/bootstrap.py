@@ -119,10 +119,33 @@ class BaseProtocolManager():
             self.nodes.add(node)
             return True
 
+    def remove_client(self, node):
+        if node in self.nodes:
+            self.nodes.remove(node)
+
+            node_files = [file for file, fnode in self.file_dict.items() if fnode == node]
+            for file in node_files:
+                self.remove_file(file)
+
+
 base_mgr = BaseProtocolManager()
 
 
 class BootstrapHandler(RequestHandler):
+    def __send_message(self, node, json):
+        global PORT
+
+        json['port'] = PORT
+
+        with socket.socket() as s:
+            s.connect(node)
+            s.sendall(Message.build(json))
+
+            resp_len = s.recv(4)
+            resp_data = s.recv(Message.parse_length(resp_len))
+
+            return Message.parse(resp_len + resp_data)
+
     def process_msg(self, msg, client_node):
         cmd = msg.get('command')
 
@@ -146,6 +169,9 @@ class BootstrapHandler(RequestHandler):
 
         elif cmd == 'LEAVE':
             return self.leave(client_node)
+
+        elif cmd == 'MISSING_NODE':
+            return self.missing_node(msg)
 
         else:
             print(f'Unknown command: {cmd}')
@@ -219,9 +245,30 @@ class BootstrapHandler(RequestHandler):
         }
 
     def leave(self, client_node):
+        base_mgr.remove_client(client_node)
+        print(f'{client_node} left')
         return {
             'reply': 'ACK_LEAVE',
         }
+
+    def missing_node(self, msg):
+        node = Node(msg['maddr'], msg['mport'])
+
+        try:
+            self.__send_message(node, {
+                'command': 'PING',
+            })
+
+            return {
+                'reply': 'NODE_ALIVE'
+            }
+
+        except:
+            base_mgr.remove_client(node)
+            print(f'{node} died')
+            return {
+                'reply': 'NODE_DEAD'
+            }
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
@@ -229,6 +276,9 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 
 if __name__ == "__main__":
+    global HOST
+    global PORT
+
     parser = argparse.ArgumentParser()
     parser.add_argument('-l', '--host', type=str, default='localhost', help='IP to serve from')
     parser.add_argument("-p", "--port", type=int, default=8000, help="Port number to listen on (default 8000)")

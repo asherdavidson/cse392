@@ -30,7 +30,11 @@ class FuseApi(object):
         json['port'] = self.local_node.port
 
         with socket.socket() as s:
-            s.connect(node)
+            try:
+                s.connect(node)
+            except Exception as e:
+                self.report_missing_node(node)
+                raise e
 
             s.sendall(Message.build(json))
 
@@ -57,6 +61,18 @@ class FuseApi(object):
 
         if resp['reply'] != 'ACK_ADD':
             raise Exception('Could not add files to the network')
+
+    def shutdown(self):
+        resp = self.__send_message(self.bootstrap_node, {
+            'command': 'LEAVE',
+        })
+
+    def report_missing_node(self, node):
+        resp = self.__send_message(self.bootstrap_node, {
+            'command': 'MISSING_NODE',
+            'maddr': node.addr,
+            'mport': node.port,
+        })
 
     def get_file_location(self, path):
         resp = self.__send_message(self.bootstrap_node, {
@@ -218,7 +234,7 @@ class FuseApi(object):
 
             if resp['reply'] != 'ACK_UNLINK':
                 raise FuseOSError(EIO)
-        
+
         # could make it into single bootstrap call
         resp = self.__send_message(self.bootstrap_node, {
             'command': 'FILE_REMOVE',
@@ -264,9 +280,10 @@ class DifuseFilesystem(Operations):
         print(f'readdir {path}')
         return self.api.readdir()
 
-    def statfs(self, path):
-        print(f'statfs {path}')
-        pass
+    statfs = None
+    # def statfs(self, path):
+    #     print(f'statfs {path}')
+    #     pass
 
     def truncate(self, path, length, fh=None):
         print(f'truncate {path} to {length}')
@@ -284,6 +301,10 @@ class DifuseFilesystem(Operations):
     def unlink(self, path):
         print(f'unlink {path}')
         return self.api.unlink(path)
+
+    def destroy(self, path):
+        print('destroy')
+        shutdown()
 
 
 # Server
@@ -308,6 +329,9 @@ class ServerHandler(RequestHandler):
 
         elif cmd == 'UNLINK':
             return self.unlink(msg)
+
+        elif cmd == 'PING':
+            return self.ping(msg)
 
     def utimens(self, msg):
         path = os.path.join(api.local_files, msg['path'][1:])
@@ -378,14 +402,25 @@ class ServerHandler(RequestHandler):
             'reply': 'ACK_UNLINK'
         }
 
+    def ping(self, msg):
+        return {
+            'reply': 'ACK_PING'
+        }
+
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
     pass
 
 
+def shutdown():
+    # api.shutdown()
+    server.shutdown()
+
+
 if __name__ == "__main__":
     global api
+    global server
 
     parse = argparse.ArgumentParser()
     parse.add_argument("bootstrap_addr", type=str, help="Boot strap node address")
@@ -420,6 +455,7 @@ if __name__ == "__main__":
         print("Registered with Bootstrap")
         print(f"We are {api.local_node.addr}:{api.local_node.port}")
 
+        # Start the local server
         server = ThreadedTCPServer(api.local_node, ServerHandler)
         server_thread = threading.Thread(target=server.serve_forever)
         server_thread.daemon = True
@@ -429,6 +465,10 @@ if __name__ == "__main__":
         # start FUSE
         print(f"Fuse serving files at: {fuse_mount_point}")
         fuse = FUSE(DifuseFilesystem(api), fuse_mount_point, foreground=True)
+
+    except SystemExit:
+        print('ctrl-c')
+        # api.disconnect()
 
     except Exception as e:
         raise e
