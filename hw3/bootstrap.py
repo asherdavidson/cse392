@@ -64,6 +64,18 @@ class ConsistentHashManager():
 
         return self.client_list[0][1]
 
+    def get_next_client(self, client_id):
+        '''
+            Get client that follows the node
+        '''
+        if not self.client_list or len(self.client_list) < 2:
+            return None
+
+        for id, node in self.client_list:
+            if id > client_id:
+                return node
+
+        return self.client_list[0][1]
 
     def remove_client(self, id):
         '''
@@ -180,12 +192,16 @@ class BootstrapHandler(RequestHandler):
     def join(self, client_node):
         try:
             id = ch_mgr.add_client(client_node)
+            next_node = ch_mgr.get_next_client(id)
+
             print(f'{client_node} joined with id {id}')
             return {
                 'reply': 'ACK_JOIN',
                 'local_addr': client_node.addr,
                 'local_port': client_node.port,
                 'id': id,
+                'next_addr': next_node.addr if next_node else 'NONE',
+                'next_port': next_node.port if next_node else 0,
             }
         except Exception:
             print(f'{client_node} failed to join')
@@ -294,7 +310,7 @@ class BootstrapHandler(RequestHandler):
         #     return {
         #         'reply': 'NODE_DEAD'
         #     }
-
+        pass
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass

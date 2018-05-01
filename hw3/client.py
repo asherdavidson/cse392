@@ -81,7 +81,10 @@ class FuseApi(object):
         self.id = resp['id']
 
         # need to receive files from next node in consistent hash cluster
+        # if resp['next_addr'] != 'NONE':
+        #     resp = self.__send_message(Node(resp['next_addr'], resp['next_port']), {
 
+        #     })
 
         # need to computer hash for files and send to other nodes
         resp = self.__send_message(self.bootstrap_node, {

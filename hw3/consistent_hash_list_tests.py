@@ -41,6 +41,25 @@ class TestConsistentHashManager(unittest.TestCase):
 
         self.assertEqual(self.list.get_client(20000), Node('192.168.1.11', 8080), 'wrong client for hash')
 
+    def test_get_next_client(self):
+        self.list.add_client(Node('192.168.1.21', 8080))    # 132091
+        self.list.add_client(Node('192.168.1.4', 8080))     # 167735
+        self.list.add_client(Node('192.168.1.6', 8080))     # 255802
+        self.list.add_client(Node('192.168.1.11', 8080))    # 271062
+        self.list.add_client(Node('192.168.1.35', 8080))    # 343889
+        self.list.add_client(Node('192.168.1.71', 8080))    # 819644
+
+        self.assertEqual(self.list.get_next_client(167735), Node('192.168.1.6', 8080), 'get next client failed')
+
+    def test_get_client_wrap(self):
+        self.list.add_client(Node('192.168.1.21', 8080))    # 132091
+        self.list.add_client(Node('192.168.1.4', 8080))     # 167735
+        self.list.add_client(Node('192.168.1.6', 8080))     # 255802
+        self.list.add_client(Node('192.168.1.11', 8080))    # 271062
+        self.list.add_client(Node('192.168.1.35', 8080))    # 343889
+        self.list.add_client(Node('192.168.1.71', 8080))    # 819644
+
+        self.assertEqual(self.list.get_next_client(819644), Node('192.168.1.21', 8080), 'get next client wrap')
 
 if __name__ == "__main__":
     unittest.main()
