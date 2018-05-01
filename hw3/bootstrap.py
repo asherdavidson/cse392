@@ -16,7 +16,7 @@ class ConsistentHashManager():
         # used to check if client already exists
         # self.client_id_set = set()
 
-        # list elements will be in the form (id, addr)
+        # list elements will be in the form (id, node)
         self.client_list = []
 
     def __len__(self):
@@ -25,12 +25,12 @@ class ConsistentHashManager():
     def __str__(self):
         return str(self.client_list)
 
-    def add_client(self, addr):
+    def add_client(self, client_node):
         '''
             hash client addr and add to list, return id
         '''
         # hash and find insertion position
-        id = self.hash(addr)
+        id = self.hash(f'{client_node.addr}{client_node.port}')
 
         # linear search
         pos = 0
@@ -43,9 +43,9 @@ class ConsistentHashManager():
                 break
 
         if at_end:
-            self.client_list.append((id, addr))
+            self.client_list.append((id, client_node))
         else:
-            self.client_list.insert(pos, (id, addr))
+            self.client_list.insert(pos, (id, client_node))
 
         return id
 
@@ -58,9 +58,9 @@ class ConsistentHashManager():
         if not self.client_list:
             return None
 
-        for id, addr in self.client_list:
+        for id, node in self.client_list:
             if hash < id:
-                return addr
+                return node
 
         return self.client_list[0][1]
 
@@ -128,7 +128,8 @@ class BaseProtocolManager():
                 self.remove_file(file)
 
 
-base_mgr = BaseProtocolManager()
+# base_mgr = BaseProtocolManager()
+ch_mgr = ConsistentHashManager(1000000)
 
 
 class BootstrapHandler(RequestHandler):
@@ -155,20 +156,20 @@ class BootstrapHandler(RequestHandler):
         elif cmd == 'FILES_ADD':
             return self.add_files(msg, client_node)
 
-        elif cmd == 'FILE_ADD':
-            return self.add_file(msg, client_node)
+        # elif cmd == 'FILE_ADD':
+        #     return self.add_file(msg, client_node)
 
-        elif cmd == 'FILE_REMOVE':
-            return self.remove_file(msg, client_node)
+        # elif cmd == 'FILE_REMOVE':
+        #     return self.remove_file(msg, client_node)
 
         elif cmd == 'GET_FILE_LOC':
             return self.get_file_loc(msg)
 
         elif cmd == 'LIST_DIR':
-            return self.list_dir()
+            return self.list_dir(client_node)
 
         elif cmd == 'LEAVE':
-            return self.leave(client_node)
+            return self.leave(msg, client_node)
 
         elif cmd == 'MISSING_NODE':
             return self.missing_node(msg)
@@ -177,60 +178,75 @@ class BootstrapHandler(RequestHandler):
             print(f'Unknown command: {cmd}')
 
     def join(self, client_node):
-        if base_mgr.add_client(client_node):
-            print(f'{client_node} joined')
+        try:
+            id = ch_mgr.add_client(client_node)
+            print(f'{client_node} joined with id {id}')
             return {
                 'reply': 'ACK_JOIN',
                 'local_addr': client_node.addr,
                 'local_port': client_node.port,
+                'id': id,
             }
-
-        else:
+        except Exception:
             print(f'{client_node} failed to join')
             return {
                 'reply': 'JOIN_FAILED',
             }
 
     def add_files(self, msg, client_node):
+        '''
+            calculate hash location for all files
+            only send back files that have to be moved
+        '''
         files_list = msg.get('files')
+        result = []
 
-        # shouldn't expect any problems for now
-        if files_list:
-            for f in files_list:
-                base_mgr.add_file(f, client_node)
+        for file in files_list:
+            hash = ch_mgr.hash(file)
+            node = ch_mgr.get_client(hash)
 
-        print(f'{client_node} added {len(files_list)} files')
+            if node != client_node:
+                result.append({
+                    'file': file,
+                    'addr': node.addr,
+                    'port': node.port,
+                })
+
         return {
             'reply': 'ACK_ADD',
+            'file_dests': result,
         }
 
-    def add_file(self, msg, client_node):
-        filename = msg['path'][1:]
-        if base_mgr.add_file(filename, client_node):
-            print(f'{client_node} added {filename}')
-            return {
-                'reply': 'ACK_ADD',
-            }
-        else:
-            return {
-                'reply': 'FILE_ALREADY_EXISTS'
-            }
+    # def add_file(self, msg, client_node):
+    #     filename = msg['path'][1:]
+    #     hash = ch_mgr.hash(filename)
+    #     node = ch_mgr.get_client(hash)
 
-    def remove_file(self, msg, client_node):
-        filename = msg['path'][1:]
-        base_mgr.remove_file(filename)
-        print(f'{client_node} removed {filename}')
+    #     if base_mgr.add_file(filename, client_node):
+    #         print(f'{client_node} added {filename}')
+    #         return {
+    #             'reply': 'ACK_ADD',
+    #         }
+    #     else:
+    #         return {
+    #             'reply': 'FILE_ALREADY_EXISTS'
+    #         }
 
-        return {
-            'reply': 'ACK_RM',
-        }
+    # def remove_file(self, msg, client_node):
+    #     filename = msg['path'][1:]
+
+
+    #     base_mgr.remove_file(filename)
+    #     print(f'{client_node} removed {filename}')
+
+    #     return {
+    #         'reply': 'ACK_RM',
+    #     }
 
     def get_file_loc(self, msg):
-        node = base_mgr.get_file_location(msg['file'])
-        if node == None:
-            return {
-                'reply': 'FILE_NOT_FOUND'
-            }
+        filename = msg['file'][1:]
+        hash = ch_mgr.hash(filename)
+        node = ch_mgr.get_client(hash)
 
         return {
             'reply': 'ACK_GET_FILE_LOC',
@@ -238,37 +254,46 @@ class BootstrapHandler(RequestHandler):
             'port': node.port,
         }
 
-    def list_dir(self):
+    def list_dir(self, client_node):
+        '''
+            returns list of nodes for client_node to query
+            client needs to look at local directory as well
+        '''
+
+        result = [node for id, node in ch_mgr.client_list if node != client_node]
+        result += ['.', '..']
+
         return {
             'reply': 'ACK_LS',
-            'files': base_mgr.get_files_list(),
+            'files': result,
         }
 
-    def leave(self, client_node):
-        base_mgr.remove_client(client_node)
+    def leave(self, msg, client_node):
+        ch_mgr.remove_client(msg['id'])
+
         print(f'{client_node} left')
         return {
             'reply': 'ACK_LEAVE',
         }
 
     def missing_node(self, msg):
-        node = Node(msg['maddr'], msg['mport'])
+        # node = Node(msg['maddr'], msg['mport'])
 
-        try:
-            self.__send_message(node, {
-                'command': 'PING',
-            })
+        # try:
+        #     self.__send_message(node, {
+        #         'command': 'PING',
+        #     })
 
-            return {
-                'reply': 'NODE_ALIVE'
-            }
+        #     return {
+        #         'reply': 'NODE_ALIVE'
+        #     }
 
-        except:
-            base_mgr.remove_client(node)
-            print(f'{node} died')
-            return {
-                'reply': 'NODE_DEAD'
-            }
+        # except:
+        #     base_mgr.remove_client(node)
+        #     print(f'{node} died')
+        #     return {
+        #         'reply': 'NODE_DEAD'
+        #     }
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):

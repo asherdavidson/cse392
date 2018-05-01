@@ -22,6 +22,9 @@ class FuseApi(object):
         self.local_node     = local_node
         self.local_files    = local_files
 
+        # consistent hash id
+        self.id = None
+
         self.join_cluster()
 
     def __send_message(self, node, json):
@@ -43,6 +46,28 @@ class FuseApi(object):
 
             return Message.parse(resp_len + resp_data)
 
+    def __send_file(self, node, path):
+        '''
+            sends file and deletes local copy after receiving confirmation
+        '''
+        local_path = os.path.join(self.local_files, path[1:])
+        with open(local_path, 'rb') as f:
+            buf = f.read()
+
+        msg = {
+            'command': 'SEND_FILE',
+            'file_name': path[1:],
+            'data': b64encode(buf).decode(),
+        }
+
+        resp = self.__send_message(node, msg)
+
+        if resp['reply'] == 'ACK_WRITE':
+            os.unlink(local_path)
+        else:
+            # raise error
+            pass
+
     def join_cluster(self):
         '''Connects to the bootstrap node and attempts to JOIN the network'''
         resp = self.__send_message(self.bootstrap_node, {
@@ -53,7 +78,12 @@ class FuseApi(object):
             raise Exception('Could not join the network')
 
         self.local_node = Node(resp['local_addr'], resp['local_port'])
+        self.id = resp['id']
 
+        # need to receive files from next node in consistent hash cluster
+
+
+        # need to computer hash for files and send to other nodes
         resp = self.__send_message(self.bootstrap_node, {
             "command": "FILES_ADD",
             "files":   os.listdir(self.local_files),
@@ -321,6 +351,9 @@ class ServerHandler(RequestHandler):
         elif cmd == 'WRITE':
             return self.write(msg)
 
+        elif cmd == 'SEND_FILE':
+            return self.write(msg, True)
+
         elif cmd == 'TRUNCATE':
             return self.truncate(msg)
 
@@ -357,13 +390,14 @@ class ServerHandler(RequestHandler):
             'data': b64encode(buf).decode(),
         }
 
-    def write(self, msg):
+    def write(self, msg, create=False):
         path = os.path.join(api.local_files, msg['path'][1:])
-        offset = msg['offset']
         data = b64decode(msg['data'].encode())
 
         with open(path, 'wb') as f:
-            f.seek(offset)
+            if not create:
+                offset = msg['offset']
+                f.seek(offset)
             f.write(data)
 
         return {
