@@ -19,6 +19,8 @@ class ConsistentHashManager():
         # list elements will be in the form (id, node)
         self.client_list = []
 
+        self.files = set()
+
     def __len__(self):
         return len(self.client_list)
 
@@ -63,6 +65,9 @@ class ConsistentHashManager():
                 return node
 
         return self.client_list[0][1]
+
+    def get_all_clients(self):
+        return [node for _, node in self.client_list]
 
     def get_next_client(self, client_id):
         '''
@@ -188,6 +193,9 @@ class BootstrapHandler(RequestHandler):
         elif cmd == 'MISSING_NODE':
             return self.missing_node(msg)
 
+        elif cmd == 'GET_ALL_NODES':
+            return self.get_all_nodes(client_node)
+
         else:
             print(f'Unknown command: {cmd}')
 
@@ -237,32 +245,6 @@ class BootstrapHandler(RequestHandler):
             'file_dests': result,
         }
 
-    # def add_file(self, msg, client_node):
-    #     filename = msg['path'][1:]
-    #     hash = ch_mgr.hash(filename)
-    #     node = ch_mgr.get_client(hash)
-
-    #     if base_mgr.add_file(filename, client_node):
-    #         print(f'{client_node} added {filename}')
-    #         return {
-    #             'reply': 'ACK_ADD',
-    #         }
-    #     else:
-    #         return {
-    #             'reply': 'FILE_ALREADY_EXISTS'
-    #         }
-
-    # def remove_file(self, msg, client_node):
-    #     filename = msg['path'][1:]
-
-
-    #     base_mgr.remove_file(filename)
-    #     print(f'{client_node} removed {filename}')
-
-    #     return {
-    #         'reply': 'ACK_RM',
-    #     }
-
     def get_file_loc(self, msg):
         filename = msg['file'][1:]
         hash = ch_mgr.hash(filename)
@@ -277,20 +259,6 @@ class BootstrapHandler(RequestHandler):
             'reply': 'ACK_GET_FILE_LOC',
             'addr': node.addr,
             'port': node.port,
-        }
-
-    def list_dir(self, client_node):
-        '''
-            returns list of nodes for client_node to query
-            client needs to look at local directory as well
-        '''
-
-        result = [node for id, node in ch_mgr.client_list if node != client_node]
-        result += ['.', '..']
-
-        return {
-            'reply': 'ACK_LS',
-            'files': result,
         }
 
     def leave(self, msg, client_node):
@@ -314,12 +282,25 @@ class BootstrapHandler(RequestHandler):
             }
 
         except:
+<<<<<<< HEAD
             ch_mgr.remove_client(node)
+=======
+            base_mgr.remove_client(node)
+>>>>>>> 45ae1cedc9dc4e447af6665055f0c59523eb0c41
             print(f'{node} died')
             return {
                 'reply': 'NODE_DEAD'
             }
+<<<<<<< HEAD
         pass
+=======
+
+    def get_all_nodes(self, client_node):
+        return {
+            'reply': 'ACK_GET_ALL_NODES',
+            'nodes': ch_mgr.get_all_clients(),
+        }
+>>>>>>> 45ae1cedc9dc4e447af6665055f0c59523eb0c41
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass

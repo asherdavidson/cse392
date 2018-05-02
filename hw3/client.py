@@ -4,6 +4,7 @@ import threading
 import socketserver
 import sys
 import argparse
+import select
 from time import time
 from stat import S_IFDIR, S_IFLNK, S_IFREG
 from errno import *
@@ -41,6 +42,12 @@ class FuseApi(object):
                 raise e
 
             s.sendall(Message.build(json))
+
+            poll = select.poll()
+            poll.register(s, select.POLLIN|select.POLLPRI)
+
+            if not poll.poll(timeout):
+                raise TimeoutError()
 
             resp_len = s.recv(4)
             resp_data = s.recv(Message.parse_length(resp_len))
@@ -133,22 +140,10 @@ class FuseApi(object):
         return Node(resp['addr'], resp['port'])
 
     def create(self, path, mode):
-        # check if file exists in cluster before creating
-        # get_file_location errors out if this fails
-        try:
-            resp = self.get_file_location(path)
-            if resp:
-                return 0
-        except Exception:
-            pass
+        node = self.get_file_location(path)
 
-        local_path = os.path.join(self.local_files, path[1:])
-        f = open(local_path, 'x')
-        f.close()
-        os.chmod(local_path, mode)
-
-        resp = self.send_message(self.bootstrap_node, {
-            'command': 'FILE_ADD',
+        resp = self.__send_message(node, {
+            'command': 'CREATE',
             'path': path,
         })
 
@@ -220,14 +215,25 @@ class FuseApi(object):
 
     def readdir(self):
         '''Gets the current directory contents from the bootstrap node'''
-        resp = self.send_message(self.bootstrap_node, {
-            'command': 'LIST_DIR'
+        resp = self.__send_message(self.bootstrap_node, {
+            'command': 'GET_ALL_NODES'
         })
-        if resp['reply'] != 'ACK_LS':
+        if resp['reply'] != 'ACK_GET_ALL_NODES':
             raise FuseOSError(ENOENT)
 
+        files = []
+        for addr, port in resp['nodes']:
+            node = Node(addr, port)
+            try:
+                resp = self.__send_message(node, {
+                    'command': 'LIST_DIR'
+                }, timeout=1)
+                files += resp['files']
+            except Exception as e:
+                raise e
+
         # print('Files: {}'.format(resp["files"]))
-        return resp['files']
+        return files + ['.', '..']
 
     def truncate(self, path, length, fh):
         node = self.get_file_location(path)
@@ -386,6 +392,12 @@ class ServerHandler(RequestHandler):
         elif cmd == 'PING':
             return self.ping(msg)
 
+        elif cmd == 'LIST_DIR':
+            return self.list_dir()
+
+        elif cmd == 'CREATE':
+            return self.create(msg)
+
     def utimens(self, msg):
         path = os.path.join(api.local_files, msg['path'][1:])
         times = msg['times']
@@ -481,6 +493,26 @@ class ServerHandler(RequestHandler):
     def ping(self, msg):
         return {
             'reply': 'ACK_PING'
+        }
+
+    def list_dir(self):
+        return {
+            'reply': 'ACK_LIST_DIR',
+            'files': os.listdir(api.local_files)
+        }
+
+    def create(self, msg):
+        path = msg['path']
+
+        local_path = os.path.join(api.local_files, path[1:])
+        try:
+            f = open(local_path, 'x')
+            f.close()
+        except:
+            pass
+
+        return {
+            'reply': 'ACK_CREATE',
         }
 
 
