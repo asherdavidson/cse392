@@ -175,17 +175,8 @@ class BootstrapHandler(RequestHandler):
         elif cmd == 'FILES_ADD':
             return self.add_files(msg, client_node)
 
-        # elif cmd == 'FILE_ADD':
-        #     return self.add_file(msg, client_node)
-
-        # elif cmd == 'FILE_REMOVE':
-        #     return self.remove_file(msg, client_node)
-
         elif cmd == 'GET_FILE_LOC':
             return self.get_file_loc(msg)
-
-        elif cmd == 'LIST_DIR':
-            return self.list_dir(client_node)
 
         elif cmd == 'LEAVE':
             return self.leave(msg, client_node)
@@ -210,8 +201,8 @@ class BootstrapHandler(RequestHandler):
                 'local_addr': client_node.addr,
                 'local_port': client_node.port,
                 'id': id,
-                'next_addr': next_node.addr if next_node else 'NONE',
-                'next_port': next_node.port if next_node else 0,
+                'next_addr': next_node.addr if next_node else None,
+                'next_port': next_node.port if next_node else None,
             }
         except Exception:
             print(f'{client_node} failed to join')
@@ -231,7 +222,7 @@ class BootstrapHandler(RequestHandler):
             hash = ch_mgr.hash(file)
             node = ch_mgr.get_client(hash)
     
-            print(f'Hash for {file}: {hash}')
+            print(f'add_files - Hash for {file}: {hash}')
 
             if node != client_node:
                 result.append({
@@ -249,6 +240,7 @@ class BootstrapHandler(RequestHandler):
         filename = msg['file'][1:]
         hash = ch_mgr.hash(filename)
         node = ch_mgr.get_client(hash)
+        print(f'get_file_loc - Hash for {filename}: {hash}')
 
         if node == None:
             return {
@@ -262,11 +254,16 @@ class BootstrapHandler(RequestHandler):
         }
 
     def leave(self, msg, client_node):
-        ch_mgr.remove_client(msg['id'])
+        id = msg['id']
+        next = ch_mgr.get_next_client(id)
+        ch_mgr.remove_client(client_node)
 
         print(f'{client_node} left')
+        print(f'Next node {next}')
         return {
             'reply': 'ACK_LEAVE',
+            'next_addr': next.addr if next else None,
+            'next_port': next.port if next else None,
         }
 
     def missing_node(self, msg):
@@ -282,25 +279,17 @@ class BootstrapHandler(RequestHandler):
             }
 
         except:
-<<<<<<< HEAD
             ch_mgr.remove_client(node)
-=======
-            base_mgr.remove_client(node)
->>>>>>> 45ae1cedc9dc4e447af6665055f0c59523eb0c41
             print(f'{node} died')
             return {
                 'reply': 'NODE_DEAD'
             }
-<<<<<<< HEAD
-        pass
-=======
 
     def get_all_nodes(self, client_node):
         return {
             'reply': 'ACK_GET_ALL_NODES',
             'nodes': ch_mgr.get_all_clients(),
         }
->>>>>>> 45ae1cedc9dc4e447af6665055f0c59523eb0c41
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass

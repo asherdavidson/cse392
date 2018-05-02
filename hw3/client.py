@@ -28,7 +28,7 @@ class FuseApi(object):
 
         self.join_cluster()
 
-    def send_message(self, node, json):
+    def send_message(self, node, json, timeout=-1):
         '''Sends a dict encoded into a json string to the given node
            (can send to the bootstrap node or any other node)'''
         json['port'] = self.local_node.port
@@ -91,7 +91,7 @@ class FuseApi(object):
         self.id = resp['id']
 
         # need to receive files from next node in consistent hash cluster
-        if resp['next_addr'] != 'NONE':
+        if resp['next_addr']:
             resp = self.send_message(Node(resp['next_addr'], resp['next_port']), {
                 "command": "MIGRATE",
             })
@@ -116,7 +116,16 @@ class FuseApi(object):
     def shutdown(self):
         resp = self.send_message(self.bootstrap_node, {
             'command': 'LEAVE',
+            'id': self.id,
         })
+
+        if resp['reply'] != 'ACK_LEAVE':
+            print('Shut down - Failed to get next node')
+
+        node = Node(resp['next_addr'], resp['next_port'])
+        for file in os.listdir(self.local_files):
+            self.send_file(node, file)
+        print('Shutdown Migration Complete')
 
     def report_missing_node(self, node):
         resp = self.send_message(self.bootstrap_node, {
@@ -142,7 +151,7 @@ class FuseApi(object):
     def create(self, path, mode):
         node = self.get_file_location(path)
 
-        resp = self.__send_message(node, {
+        resp = self.send_message(node, {
             'command': 'CREATE',
             'path': path,
         })
@@ -215,7 +224,7 @@ class FuseApi(object):
 
     def readdir(self):
         '''Gets the current directory contents from the bootstrap node'''
-        resp = self.__send_message(self.bootstrap_node, {
+        resp = self.send_message(self.bootstrap_node, {
             'command': 'GET_ALL_NODES'
         })
         if resp['reply'] != 'ACK_GET_ALL_NODES':
@@ -225,7 +234,7 @@ class FuseApi(object):
         for addr, port in resp['nodes']:
             node = Node(addr, port)
             try:
-                resp = self.__send_message(node, {
+                resp = self.send_message(node, {
                     'command': 'LIST_DIR'
                 }, timeout=1)
                 files += resp['files']
@@ -522,7 +531,7 @@ class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 
 def shutdown():
-    # api.shutdown()
+    api.shutdown()
     server.shutdown()
 
 
