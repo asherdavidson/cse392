@@ -172,8 +172,8 @@ class BootstrapHandler(RequestHandler):
         if cmd == 'JOIN':
             return self.join(client_node)
 
-        elif cmd == 'FILES_ADD':
-            return self.add_files(msg, client_node)
+        elif cmd == 'GET_FILES_LOC':
+            return self.get_files_loc(msg, client_node)
 
         elif cmd == 'GET_FILE_LOC':
             return self.get_file_loc(msg)
@@ -210,9 +210,9 @@ class BootstrapHandler(RequestHandler):
                 'reply': 'JOIN_FAILED',
             }
 
-    def add_files(self, msg, client_node):
+    def get_files_loc(self, msg, client_node):
         '''
-            calculate hash location for all files
+            calculate hash location for list of files
             only send back files that have to be moved
         '''
         files_list = msg.get('files')
@@ -222,7 +222,7 @@ class BootstrapHandler(RequestHandler):
             hash = ch_mgr.hash(file)
             node = ch_mgr.get_client(hash)
     
-            print(f'add_files - Hash for {file}: {hash}')
+            print(f'get_files_loc - Hash for {file}: {hash}')
 
             if node != client_node:
                 result.append({
@@ -232,7 +232,7 @@ class BootstrapHandler(RequestHandler):
                 })
 
         return {
-            'reply': 'ACK_ADD',
+            'reply': 'ACK_GET_FILES_LOC',
             'file_dests': result,
         }
 

@@ -105,11 +105,11 @@ class FuseApi(object):
 
         # need to compute hash for files to send to other nodes
         resp = self.send_message(self.bootstrap_node, {
-            "command": "FILES_ADD",
+            "command": "GET_FILES_LOC",
             "files":   os.listdir(self.local_files),
         })
 
-        if resp['reply'] != 'ACK_ADD':
+        if resp['reply'] != 'ACK_GET_FILES_LOC':
             raise Exception('Could not get file destinations')
 
         # send files
@@ -423,11 +423,11 @@ class ServerHandler(RequestHandler):
 
     def migrate(self, msg):
         resp = api.send_message(api.bootstrap_node, {
-            'command': 'FILES_ADD',
+            'command': 'GET_FILES_LOC',
             'files': os.listdir(api.local_files)
         })
 
-        if resp['reply'] != 'ACK_ADD':
+        if resp['reply'] != 'ACK_GET_FILES_LOC':
             print("Can't migrate: no resp from bootstrap")
 
         result = []
