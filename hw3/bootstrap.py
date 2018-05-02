@@ -243,32 +243,6 @@ class BootstrapHandler(RequestHandler):
             'file_dests': result,
         }
 
-    # def add_file(self, msg, client_node):
-    #     filename = msg['path'][1:]
-    #     hash = ch_mgr.hash(filename)
-    #     node = ch_mgr.get_client(hash)
-
-    #     if base_mgr.add_file(filename):
-    #         print(f'{client_node} added {filename}')
-    #         return {
-    #             'reply': 'ACK_ADD',
-    #         }
-    #     else:
-    #         return {
-    #             'reply': 'FILE_ALREADY_EXISTS'
-    #         }
-
-    # def remove_file(self, msg, client_node):
-    #     filename = msg['path'][1:]
-
-
-    #     base_mgr.remove_file(filename)
-    #     print(f'{client_node} removed {filename}')
-
-    #     return {
-    #         'reply': 'ACK_RM',
-    #     }
-
     def get_file_loc(self, msg):
         filename = msg['file'][1:]
         hash = ch_mgr.hash(filename)
@@ -285,20 +259,6 @@ class BootstrapHandler(RequestHandler):
             'port': node.port,
         }
 
-    # def list_dir(self, client_node):
-    #     '''
-    #         returns list of nodes for client_node to query
-    #         client needs to look at local directory as well
-    #     '''
-
-    #     result = [node for id, node in ch_mgr.client_list if node != client_node]
-    #     result += ['.', '..']
-
-    #     return {
-    #         'reply': 'ACK_LS',
-    #         'files': result,
-    #     }
-
     def leave(self, msg, client_node):
         ch_mgr.remove_client(msg['id'])
 
@@ -308,24 +268,23 @@ class BootstrapHandler(RequestHandler):
         }
 
     def missing_node(self, msg):
-        # node = Node(msg['maddr'], msg['mport'])
+        node = Node(msg['maddr'], msg['mport'])
 
-        # try:
-        #     self.__send_message(node, {
-        #         'command': 'PING',
-        #     })
+        try:
+            self.__send_message(node, {
+                'command': 'PING',
+            })
 
-        #     return {
-        #         'reply': 'NODE_ALIVE'
-        #     }
+            return {
+                'reply': 'NODE_ALIVE'
+            }
 
-        # except:
-        #     base_mgr.remove_client(node)
-        #     print(f'{node} died')
-        #     return {
-        #         'reply': 'NODE_DEAD'
-        #     }
-        pass
+        except:
+            base_mgr.remove_client(node)
+            print(f'{node} died')
+            return {
+                'reply': 'NODE_DEAD'
+            }
 
     def get_all_nodes(self, client_node):
         return {

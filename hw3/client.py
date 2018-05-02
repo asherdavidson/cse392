@@ -129,22 +129,10 @@ class FuseApi(object):
         return Node(resp['addr'], resp['port'])
 
     def create(self, path, mode):
-        # check if file exists in cluster before creating
-        # get_file_location errors out if this fails
-        try:
-            resp = self.get_file_location(path)
-            if resp:
-                return 0
-        except Exception:
-            pass
+        node = self.get_file_location(path)
 
-        local_path = os.path.join(self.local_files, path[1:])
-        f = open(local_path, 'x')
-        f.close()
-        os.chmod(local_path, mode)
-
-        resp = self.__send_message(self.bootstrap_node, {
-            'command': 'FILE_ADD',
+        resp = self.__send_message(node, {
+            'command': 'CREATE',
             'path': path,
         })
 
@@ -393,6 +381,9 @@ class ServerHandler(RequestHandler):
         elif cmd == 'LIST_DIR':
             return self.list_dir()
 
+        elif cmd == 'CREATE':
+            return self.create(msg)
+
     def utimens(self, msg):
         path = os.path.join(api.local_files, msg['path'][1:])
         times = msg['times']
@@ -477,6 +468,17 @@ class ServerHandler(RequestHandler):
         return {
             'reply': 'ACK_LIST_DIR',
             'files': os.listdir(api.local_files)
+        }
+
+    def create(self, msg):
+        path = msg['path']
+
+        local_path = os.path.join(api.local_files, path[1:])
+        f = open(local_path, 'x')
+        f.close()
+
+        return {
+            'reply': 'ACK_CREATE',
         }
 
 
