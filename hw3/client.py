@@ -98,6 +98,10 @@ class FuseApi(object):
 
             if resp['reply'] != 'ACK_MIGRATE':
                 raise Exception('Could not notify successor to migrate')
+            else:
+                for item in resp['files']:
+                    with open(os.path.join(self.local_files, item['file']), 'wb') as f:
+                        f.write(b64decode(item['data'].encode()))
 
         # need to compute hash for files to send to other nodes
         resp = self.send_message(self.bootstrap_node, {
@@ -426,12 +430,22 @@ class ServerHandler(RequestHandler):
         if resp['reply'] != 'ACK_ADD':
             print("Can't migrate: no resp from bootstrap")
 
+        result = []
+
         for item in resp['file_dests']:
-            dest = Node(item['addr'], item['port'])
-            api.send_file(dest, item['file'])
+            local_path = os.path.join(api.local_files, item['file'])
+            with open(local_path, 'rb') as f:
+                buf = f.read()
+                result.append({
+                    'file': item['file'],
+                    'data': b64encode(buf).decode(),
+                })
+
+            os.unlink(local_path)
 
         return {
-            'reply': 'ACK_MIGRATE'
+            'reply': 'ACK_MIGRATE',
+            'files': result,
         }
 
     def read(self, msg):
