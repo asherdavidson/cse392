@@ -227,6 +227,8 @@ class BootstrapHandler(RequestHandler):
                     'addr': node.addr,
                     'port': node.port,
                 })
+            else:
+                result.append(None)
 
         return {
             'reply': 'ACK_ADD',
@@ -263,6 +265,11 @@ class BootstrapHandler(RequestHandler):
         filename = msg['file'][1:]
         hash = ch_mgr.hash(filename)
         node = ch_mgr.get_client(hash)
+
+        if node == None:
+            return {
+                'reply': 'FILE_NOT_FOUND'
+            }
 
         return {
             'reply': 'ACK_GET_FILE_LOC',

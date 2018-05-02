@@ -146,15 +146,18 @@ class FuseApi(object):
     def getattr(self, path):
         node = self.get_file_location(path)
 
-        resp = self.__send_message(node, {
-            'command': 'GET_ATTR',
-            'path':    path,
-        })
+        try:
+            resp = self.__send_message(node, {
+                'command': 'GET_ATTR',
+                'path':    path,
+            })
 
-        if resp['reply'] != 'ACK_GET_ATTR':
+            if resp['reply'] != 'ACK_GET_ATTR':
+                raise FuseOSError(ENOENT)
+
+            return resp['stat']
+        except:
             raise FuseOSError(ENOENT)
-
-        return resp['stat']
 
     def read(self, path, size, offset, fh):
         node = self.get_file_location(path)
@@ -418,17 +421,22 @@ class ServerHandler(RequestHandler):
         }
 
     def get_attr(self, msg):
-        path = os.path.join(api.local_files, msg['path'][1:])
+        try:
+            path = os.path.join(api.local_files, msg['path'][1:])
 
-        stat = os.lstat(path)
-        stat = dict((key, getattr(stat, key)) for key in
-                    ('st_atime', 'st_ctime', 'st_gid', 'st_mode',
-                     'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
+            stat = os.lstat(path)
+            stat = dict((key, getattr(stat, key)) for key in
+                        ('st_atime', 'st_ctime', 'st_gid', 'st_mode',
+                         'st_mtime', 'st_nlink', 'st_size', 'st_uid'))
 
-        return {
-            'reply': 'ACK_GET_ATTR',
-            'stat': stat,
-        }
+            return {
+                'reply': 'ACK_GET_ATTR',
+                'stat': stat,
+            }
+        except:
+            return {
+                'reply': 'FILE_NOT_FOUND'
+            }
 
     def unlink(self, msg):
         path = os.path.join(api.local_files, msg['path'][1:])
