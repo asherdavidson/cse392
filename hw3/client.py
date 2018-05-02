@@ -4,6 +4,7 @@ import threading
 import socketserver
 import sys
 import argparse
+import select
 from time import time
 from stat import S_IFDIR, S_IFLNK, S_IFREG
 from errno import *
@@ -27,7 +28,7 @@ class FuseApi(object):
 
         self.join_cluster()
 
-    def __send_message(self, node, json):
+    def __send_message(self, node, json, timeout=-1):
         '''Sends a dict encoded into a json string to the given node
            (can send to the bootstrap node or any other node)'''
         json['port'] = self.local_node.port
@@ -40,6 +41,12 @@ class FuseApi(object):
                 raise e
 
             s.sendall(Message.build(json))
+
+            poll = select.poll()
+            poll.register(s, select.POLLIN|select.POLLPRI)
+
+            if not poll.poll(timeout):
+                raise TimeoutError()
 
             resp_len = s.recv(4)
             resp_data = s.recv(Message.parse_length(resp_len))
@@ -210,13 +217,24 @@ class FuseApi(object):
     def readdir(self):
         '''Gets the current directory contents from the bootstrap node'''
         resp = self.__send_message(self.bootstrap_node, {
-            'command': 'LIST_DIR'
+            'command': 'GET_ALL_NODES'
         })
-        if resp['reply'] != 'ACK_LS':
+        if resp['reply'] != 'ACK_GET_ALL_NODES':
             raise FuseOSError(ENOENT)
 
+        files = []
+        for addr, port in resp['nodes']:
+            node = Node(addr, port)
+            try:
+                resp = self.__send_message(node, {
+                    'command': 'LIST_DIR'
+                }, timeout=1)
+                files += resp['files']
+            except Exception as e:
+                raise e
+
         # print('Files: {}'.format(resp["files"]))
-        return resp['files']
+        return files + ['.', '..']
 
     def truncate(self, path, length, fh):
         node = self.get_file_location(path)
@@ -372,6 +390,9 @@ class ServerHandler(RequestHandler):
         elif cmd == 'PING':
             return self.ping(msg)
 
+        elif cmd == 'LIST_DIR':
+            return self.list_dir()
+
     def utimens(self, msg):
         path = os.path.join(api.local_files, msg['path'][1:])
         times = msg['times']
@@ -450,6 +471,12 @@ class ServerHandler(RequestHandler):
     def ping(self, msg):
         return {
             'reply': 'ACK_PING'
+        }
+
+    def list_dir(self):
+        return {
+            'reply': 'ACK_LIST_DIR',
+            'files': os.listdir(api.local_files)
         }
 
 
