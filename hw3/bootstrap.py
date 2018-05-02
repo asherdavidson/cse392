@@ -77,11 +77,13 @@ class ConsistentHashManager():
 
         return self.client_list[0][1]
 
-    def remove_client(self, id):
+    def remove_client(self, node):
         '''
             remove client
             return True if success False otherwise
         '''
+        id = self.hash(f'{node.addr}{node.port}')
+
         pos = -1
         for idx, elem in enumerate(self.client_list):
             if elem[0] == id:
@@ -220,6 +222,8 @@ class BootstrapHandler(RequestHandler):
         for file in files_list:
             hash = ch_mgr.hash(file)
             node = ch_mgr.get_client(hash)
+    
+            print(f'Hash for {file}: {hash}')
 
             if node != client_node:
                 result.append({
@@ -227,8 +231,6 @@ class BootstrapHandler(RequestHandler):
                     'addr': node.addr,
                     'port': node.port,
                 })
-            else:
-                result.append(None)
 
         return {
             'reply': 'ACK_ADD',
@@ -300,23 +302,23 @@ class BootstrapHandler(RequestHandler):
         }
 
     def missing_node(self, msg):
-        # node = Node(msg['maddr'], msg['mport'])
+        node = Node(msg['maddr'], msg['mport'])
 
-        # try:
-        #     self.__send_message(node, {
-        #         'command': 'PING',
-        #     })
+        try:
+            self.__send_message(node, {
+                'command': 'PING',
+            })
 
-        #     return {
-        #         'reply': 'NODE_ALIVE'
-        #     }
+            return {
+                'reply': 'NODE_ALIVE'
+            }
 
-        # except:
-        #     base_mgr.remove_client(node)
-        #     print(f'{node} died')
-        #     return {
-        #         'reply': 'NODE_DEAD'
-        #     }
+        except:
+            ch_mgr.remove_client(node)
+            print(f'{node} died')
+            return {
+                'reply': 'NODE_DEAD'
+            }
         pass
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):

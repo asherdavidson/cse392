@@ -27,7 +27,7 @@ class FuseApi(object):
 
         self.join_cluster()
 
-    def __send_message(self, node, json):
+    def send_message(self, node, json):
         '''Sends a dict encoded into a json string to the given node
            (can send to the bootstrap node or any other node)'''
         json['port'] = self.local_node.port
@@ -36,7 +36,8 @@ class FuseApi(object):
             try:
                 s.connect(node)
             except Exception as e:
-                self.report_missing_node(node)
+                if node != self.bootstrap_node:
+                    self.report_missing_node(node)
                 raise e
 
             s.sendall(Message.build(json))
@@ -46,21 +47,23 @@ class FuseApi(object):
 
             return Message.parse(resp_len + resp_data)
 
-    def __send_file(self, node, path):
+    def send_file(self, node, path):
         '''
             sends file and deletes local copy after receiving confirmation
         '''
-        local_path = os.path.join(self.local_files, path[1:])
+        local_path = os.path.join(self.local_files, path)
         with open(local_path, 'rb') as f:
             buf = f.read()
 
+        print(f'sending {path} to {node}')
+
         msg = {
             'command': 'SEND_FILE',
-            'file_name': path[1:],
+            'path': path,
             'data': b64encode(buf).decode(),
         }
 
-        resp = self.__send_message(node, msg)
+        resp = self.send_message(node, msg)
 
         if resp['reply'] == 'ACK_WRITE':
             os.unlink(local_path)
@@ -70,7 +73,7 @@ class FuseApi(object):
 
     def join_cluster(self):
         '''Connects to the bootstrap node and attempts to JOIN the network'''
-        resp = self.__send_message(self.bootstrap_node, {
+        resp = self.send_message(self.bootstrap_node, {
             "command": "JOIN",
         })
 
@@ -81,34 +84,42 @@ class FuseApi(object):
         self.id = resp['id']
 
         # need to receive files from next node in consistent hash cluster
-        # if resp['next_addr'] != 'NONE':
-        #     resp = self.__send_message(Node(resp['next_addr'], resp['next_port']), {
+        if resp['next_addr'] != 'NONE':
+            resp = self.send_message(Node(resp['next_addr'], resp['next_port']), {
+                "command": "MIGRATE",
+            })
 
-        #     })
+            if resp['reply'] != 'ACK_MIGRATE':
+                raise Exception('Could not notify successor to migrate')
 
-        # need to computer hash for files and send to other nodes
-        resp = self.__send_message(self.bootstrap_node, {
+        # need to compute hash for files to send to other nodes
+        resp = self.send_message(self.bootstrap_node, {
             "command": "FILES_ADD",
             "files":   os.listdir(self.local_files),
         })
 
         if resp['reply'] != 'ACK_ADD':
-            raise Exception('Could not add files to the network')
+            raise Exception('Could not get file destinations')
+
+        # send files
+        for item in resp['file_dests']:
+            dest = Node(item['addr'], item['port'])
+            self.send_file(dest, item['file'])
 
     def shutdown(self):
-        resp = self.__send_message(self.bootstrap_node, {
+        resp = self.send_message(self.bootstrap_node, {
             'command': 'LEAVE',
         })
 
     def report_missing_node(self, node):
-        resp = self.__send_message(self.bootstrap_node, {
+        resp = self.send_message(self.bootstrap_node, {
             'command': 'MISSING_NODE',
             'maddr': node.addr,
             'mport': node.port,
         })
 
     def get_file_location(self, path):
-        resp = self.__send_message(self.bootstrap_node, {
+        resp = self.send_message(self.bootstrap_node, {
             'command': 'GET_FILE_LOC',
             'file': path,
         })
@@ -136,7 +147,7 @@ class FuseApi(object):
         f.close()
         os.chmod(local_path, mode)
 
-        resp = self.__send_message(self.bootstrap_node, {
+        resp = self.send_message(self.bootstrap_node, {
             'command': 'FILE_ADD',
             'path': path,
         })
@@ -147,7 +158,7 @@ class FuseApi(object):
         node = self.get_file_location(path)
 
         try:
-            resp = self.__send_message(node, {
+            resp = self.send_message(node, {
                 'command': 'GET_ATTR',
                 'path':    path,
             })
@@ -172,7 +183,7 @@ class FuseApi(object):
 
         # read from network
         else:
-            resp = self.__send_message(node, {
+            resp = self.send_message(node, {
                 'command': 'READ',
                 'path': path,
                 'size': size,
@@ -195,7 +206,7 @@ class FuseApi(object):
                 return f.write(data)
 
         else:
-            resp = self.__send_message(node, {
+            resp = self.send_message(node, {
                 'command': 'WRITE',
                 'path': path,
                 'offset': offset,
@@ -209,7 +220,7 @@ class FuseApi(object):
 
     def readdir(self):
         '''Gets the current directory contents from the bootstrap node'''
-        resp = self.__send_message(self.bootstrap_node, {
+        resp = self.send_message(self.bootstrap_node, {
             'command': 'LIST_DIR'
         })
         if resp['reply'] != 'ACK_LS':
@@ -226,7 +237,7 @@ class FuseApi(object):
             os.truncate(localpath, length)
 
         else:
-            resp = self.__send_message(node, {
+            resp = self.send_message(node, {
                 'command': 'TRUNCATE',
                 'path': path,
                 'length': length,
@@ -243,7 +254,7 @@ class FuseApi(object):
             os.utime(localpath, times=times)
 
         else:
-            resp = self.__send_message(node, {
+            resp = self.send_message(node, {
                 'command': 'UTIMENS',
                 'path': path,
                 'times': times,
@@ -263,7 +274,7 @@ class FuseApi(object):
             os.unlink(localpath)
 
         else:
-            resp = self.__send_message(node, {
+            resp = self.send_message(node, {
                 'command': 'UNLINK',
                 'path': path,
             })
@@ -272,7 +283,7 @@ class FuseApi(object):
                 raise FuseOSError(EIO)
 
         # could make it into single bootstrap call
-        resp = self.__send_message(self.bootstrap_node, {
+        resp = self.send_message(self.bootstrap_node, {
             'command': 'FILE_REMOVE',
             'path': path,
         })
@@ -357,6 +368,9 @@ class ServerHandler(RequestHandler):
         elif cmd == 'WRITE':
             return self.write(msg)
 
+        elif cmd == 'MIGRATE':
+            return self.migrate(msg)
+
         elif cmd == 'SEND_FILE':
             return self.write(msg, True)
 
@@ -382,6 +396,23 @@ class ServerHandler(RequestHandler):
             'reply': 'ACK_UTIMENS',
         }
 
+    def migrate(self, msg):
+        resp = api.send_message(api.bootstrap_node, {
+            'command': 'FILES_ADD',
+            'files': os.listdir(api.local_files)
+        })
+
+        if resp['reply'] != 'ACK_ADD':
+            print("Can't migrate: no resp from bootstrap")
+
+        for item in resp['file_dests']:
+            dest = Node(item['addr'], item['port'])
+            api.send_file(dest, item['file'])
+
+        return {
+            'reply': 'ACK_MIGRATE'
+        }
+
     def read(self, msg):
         path = os.path.join(api.local_files, msg['path'][1:])
         size = msg['size']
@@ -397,7 +428,7 @@ class ServerHandler(RequestHandler):
         }
 
     def write(self, msg, create=False):
-        path = os.path.join(api.local_files, msg['path'][1:])
+        path = os.path.join(api.local_files, msg['path'].lstrip('/'))
         data = b64decode(msg['data'].encode())
 
         with open(path, 'wb') as f:
