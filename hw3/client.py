@@ -474,8 +474,11 @@ class ServerHandler(RequestHandler):
         path = msg['path']
 
         local_path = os.path.join(api.local_files, path[1:])
-        f = open(local_path, 'x')
-        f.close()
+        try:
+            f = open(local_path, 'x')
+            f.close()
+        except:
+            pass
 
         return {
             'reply': 'ACK_CREATE',
