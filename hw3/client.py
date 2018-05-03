@@ -163,6 +163,9 @@ class FuseApi(object):
         return 0
 
     def getattr(self, path):
+        if path == '/' or path == '/~':
+            return self.root
+
         node = self.get_file_location(path)
 
         try:
