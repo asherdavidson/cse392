@@ -163,9 +163,6 @@ class FuseApi(object):
         return 0
 
     def getattr(self, path):
-        if path == '/' or path == '/~':
-            return self.root
-
         node = self.get_file_location(path)
 
         try:
@@ -329,7 +326,8 @@ class DifuseFilesystem(Operations):
 
     def getattr(self, path, fh=None):
         print('getattr', path, fh)
-        if path == '/':
+
+        if path == '/' or path == '/~':
             return self.root
 
         return self.api.getattr(path)
