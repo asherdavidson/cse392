@@ -228,11 +228,14 @@ class FuseApi(object):
 
     def readdir(self):
         '''Gets the current directory contents from the bootstrap node'''
+        print('readdir - getting all nodes')
         resp = self.send_message(self.bootstrap_node, {
             'command': 'GET_ALL_NODES'
         })
         if resp['reply'] != 'ACK_GET_ALL_NODES':
             raise FuseOSError(ENOENT)
+        print(f"readdir - got {resp['nodes']}")
+
 
         files = []
         for addr, port in resp['nodes']:
@@ -240,7 +243,7 @@ class FuseApi(object):
             try:
                 resp = self.send_message(node, {
                     'command': 'LIST_DIR'
-                }, timeout=1)
+                }, timeout=5)
                 files += resp['files']
             except Exception as e:
                 raise e
